@@ -5,8 +5,8 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use data_structures::avl_tree::AVL;
-
+// use data_structures::avl_tree::AVL;
+use crates::ast::AST;
 enum valueType {
     intType(i32),
     floatType(f32),
@@ -28,33 +28,7 @@ pub struct Cell
 
 
 // DISABLE_OUT, ENABLE_OUT, SCROLL, etc are not CELL_FUNC
-enum CellFunc
+struct CellFunc
 {
-    FIX(Expression),
-    SLEEP(Expression),
-    MIN(Expression, Expression),
-    RANGE_MIN(i32, i32, i32, i32),
-    MAX(Expression, Expression),
-    RANGE_MAX(i32, i32),
-    SUM(i32, i32, i32, i32),
-    AVG(i32, i32, i32, i32)
-}
-
-enum Expression
-{
-    ADD(Expression, Term),
-    SUB(Expression, Term),
-    TERM(Term)
-}
-
-enum Term
-{
-    MUL(Term, Factor),
-    DIV(Term, Factor),
-    FACTOR(Factor)
-}
-
-enum Factor             /////////////////////////////////////////////////////// COULD IMPLEMENT EXPONENT EASILY
-{
-    PARENTHESIZE()
+    ast: AST
 }
