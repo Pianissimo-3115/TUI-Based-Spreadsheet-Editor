@@ -12,6 +12,7 @@ extern {
     "int" => Token::Integer(<i32>),
     "localcell" => Token::LocalCell(<(u32, u32)>),
     "globalcell" => Token::GlobalCell(<(String, u32, u32)>),
+    "MoveUp" => Token::MoveUp,
     "(" => Token::LParen,
     ")" => Token::RParen,
     "=" => Token::Assign,

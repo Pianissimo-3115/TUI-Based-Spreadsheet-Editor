@@ -49,11 +49,20 @@ fn parse_global_cell(s: &str) -> Option<(String, u32, u32)> {
 pub enum Token {
     #[regex("0|[1-9][0-9]*", |lex| lex.slice().parse())]
     Integer(i32),
-    #[regex("[A-Z]{1,3}[1,9][0-9]{0,2}", |lex| parse_local_cell(lex.slice()))]
+    #[regex("[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_local_cell(lex.slice()))]
     LocalCell((u32, u32)),
-    #[regex("[a-z]+\\.[A-Z]{1,3}[1,9][0-9]{0,2}", |lex| parse_global_cell(lex.slice()))] //NOTE: Sheet names must be lower case in this implementation
+    #[regex("[a-z]+\\.[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_global_cell(lex.slice()))] //NOTE: Sheet names must be lower case in this implementation
     GlobalCell((String, u32, u32)),
-    
+    #[token("w")]
+    MoveUp,
+    #[token("a")]
+    MoveLeft,
+    #[token("s")]
+    MeveDown,
+    #[token("d")]
+    MoveRight,
+    #[token("q")]
+    Quit,
     #[token("SUM")]
     Sum,
     #[token("AVG")]

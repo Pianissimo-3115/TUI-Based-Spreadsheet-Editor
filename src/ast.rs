@@ -23,6 +23,7 @@ pub enum ParserError{
 pub enum Command {
     DisplayCmd(DisplayCommand),  //Note: IS Box<DisplayCommand> better? Display Command is a finite data type, but expr was not.
     AssignCmd(Addr, Box<Expr>),
+    Quit,
 }
 
 #[derive(Debug)]
@@ -40,7 +41,9 @@ pub enum DisplayCommand {
 pub enum Expr {
     Number(i32),
     Cell(Addr),
-    Op(Box<Expr>, BinaryOp, Box<Expr>),
+    MonoOp(Monofunction, Box<Expr>),
+    RangeOp(op: RangeFunction, start: Addr, end: Addr) //Note: Should addr be under Box<>?
+    BinOp(Box<Expr>, BinaryFunction, Box<Expr>),
 }
 
 #[derive(Debug)]
@@ -49,8 +52,27 @@ pub enum Addr {
     Global {sheet: String, row: u32, col: u32} //NOTE: sheet should be String or str or &str or something else?!?.
 }
 
+// #[derive(Debug)]
+// pub enum Range {
+
+// }
+
 #[derive(Debug)]
-pub enum BinaryOp {
+pub enum MonoFunction {
+    Sleep,
+}
+
+#[derive(Debug)]
+pub enum RangeFunction {
+    Sum,
+    Avg,
+    Max,
+    Min,
+    Stdev,
+}
+
+#[derive(Debug)]
+pub enum BinaryFunction {
     Mul,
     Div,
     Add,
