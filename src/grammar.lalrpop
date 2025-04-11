@@ -12,7 +12,24 @@ extern {
     "int" => Token::Integer(<i32>),
     "localcell" => Token::LocalCell(<(u32, u32)>),
     "globalcell" => Token::GlobalCell(<(String, u32, u32)>),
+
     "MoveUp" => Token::MoveUp,
+    "MoveLeft" => Token::MoveLeft,
+    "MovoDown" => Token::MoveDown,
+    "MoveRight" => Token::MoveRight,
+    "Quit" => Token::Quit,
+
+    "Sum" => Token::Sum,
+    "Avg" => Token::Avg,
+    "Min" => Token::Min,
+    "Max" => Token::Max,
+    "Stdev" => Token::Stdev,
+    "Sleep" => Token::Sleep,
+
+    "EnableOut" => Token::EnableOut,
+    "DisableOut" => Token::DisableOut,
+    "ScrollTo" => Token::ScrollTo,
+
     "(" => Token::LParen,
     ")" => Token::RParen,
     "=" => Token::Assign,
@@ -22,46 +39,74 @@ extern {
     "*" => Token::OperatorMul,
     "/" => Token::OperatorDiv,
 
-    "Sum" => Token::Sum,
-    "Avg" => Token::Avg,
-    "Min" => Token::Min,
-    "Max" => Token::Max,
-    "Stdev" => Token::Stdev,
-    "Sleep" => Token::Sleep,
   }
 }
 
+pub Command: Command = {
+    <DisplayCommand> => Command::DisplayCmd(<>),
+    <a: Addr> "=" <e: Expr> => Command::AssignCmd(a, e),
+    "Quit" => Command::Quit,
+}
 
-pub Expr: Box<Expr> = { // (1)
-    Expr ExprOp Factor => Box::new(Expr::Op(<>)), // (2)
+
+
+Expr: Box<Expr> = { // (1)
+    Expr ExprOp Factor => Box::new(Expr::BinOp(<>)), // (2)
     Factor,
 };
 
-ExprOp: BinaryOp = { // (3)
-    "+" => BinaryOp::Add,
-    "-" => BinaryOp::Sub,
+ExprOp: BinaryFunction = { // (3)
+    "+" => BinaryFunction::Add,
+    "-" => BinaryFunction::Sub,
 };
 
 Factor: Box<Expr> = {
-    Factor FactorOp Atom => Box::new(Expr::Op(<>)),
+    Factor FactorOp Atom => Box::new(Expr::BinOp(<>)),
     Atom,
 };
 
-FactorOp: BinaryOp = {
-    "*" => BinaryOp::Mul,
-    "/" => BinaryOp::Div,
+FactorOp: BinaryFunction = {
+    "*" => BinaryFunction::Mul,
+    "/" => BinaryFunction::Div,
 };
 
 Atom: Box<Expr> = {
     "int" => Box::new(Expr::Number(<>)),
     "-" <i: "int"> => Box::new(Expr::Number(-i)),
+    <Addr> => Box::new(Expr::Cell(<>)),
+    <f: RangeFuncs> "(" <a1: Addr> ":" <a2: Addr> ")" => Box::new(Expr::RangeOp{op: f, start: a1, end: a2}),
+    <f: MonoFuncs> "(" <e: Expr> ")" => Box::new(Expr::MonoOp(f, e)),
     "(" <Expr> ")",
-    <cr: "localcell"> => { 
-        let (col, row) = cr;
-        Box::new(Expr::Cell(Addr::Local{col, row})) },  //NOTE: Why am I doing Box::new everywhere?. Also, how come tokens returns Option<_> but stufff is working?!?
-    <scr: "globalcell"> => { 
-        let (sheet, col, row) = scr;
-        Box::new(Expr::Cell(Addr::Global{sheet, col, row})) },
 };
 
+Addr: Addr = {
+    <cr: "localcell"> => { 
+        let (col, row) = cr;
+        Addr::Local{col, row} },  //NOTE: Why am I doing Box::new everywhere?. Also, how come tokens returns Option<_> but stufff is working?!?
+    <scr: "globalcell"> => { 
+        let (sheet, col, row) = scr;
+        Addr::Global{sheet, col, row} },
+}
+
+RangeFuncs: RangeFunction = {
+    "Sum" => RangeFunction::Sum,
+    "Avg" => RangeFunction::Avg,
+    "Min" => RangeFunction::Min,
+    "Max" => RangeFunction::Max,
+    "Stdev" => RangeFunction::Stdev,
+}
+
+MonoFuncs: MonoFunction = {
+    "Sleep" => MonoFunction::Sleep,
+}
+
+DisplayCommand: DisplayCommand = {
+    "EnableOut" => DisplayCommand::EnableOut,
+    "DisableOut" => DisplayCommand::DisableOut,
+    "ScrollTo" <Addr> => DisplayCommand::ScrollTo(<>), // NOTE: This means that scroll_toA45 will also work (space is not enforced) ("scroll_to    AAA3" will(should?) also work)
+    "MoveUp" => DisplayCommand::MoveUp,
+    "MoveLeft" => DisplayCommand::MoveLeft,
+    "MovoDown" => DisplayCommand::MoveDown,
+    "MoveRight" => DisplayCommand::MoveRight,
+} 
 

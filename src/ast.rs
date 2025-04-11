@@ -41,8 +41,8 @@ pub enum DisplayCommand {
 pub enum Expr {
     Number(i32),
     Cell(Addr),
-    MonoOp(Monofunction, Box<Expr>),
-    RangeOp(op: RangeFunction, start: Addr, end: Addr) //Note: Should addr be under Box<>?
+    MonoOp(MonoFunction, Box<Expr>),
+    RangeOp{op: RangeFunction, start: Addr, end: Addr}, //Note: Should addr be under Box<>?
     BinOp(Box<Expr>, BinaryFunction, Box<Expr>),
 }
 

@@ -58,7 +58,7 @@ pub enum Token {
     #[token("a")]
     MoveLeft,
     #[token("s")]
-    MeveDown,
+    MoveDown,
     #[token("d")]
     MoveRight,
     #[token("q")]
