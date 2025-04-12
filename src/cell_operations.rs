@@ -1,47 +1,51 @@
 ///////////////// ONLY COMPLETED TOKENS FOR NUMERAL CELL FUNCS; STRING CELL FUNCS NOT DONE
 ///////////////// HAVE TO MAKE LEXER BY OWN 😢  FOR COMPLEX FUNCTIONS AS PROPOSED
-use ast::Expr;
+use crate::ast::Expr;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
+#[allow(unused_imports)]
 use std::rc::{Rc, Weak};
 
 #[derive(Debug, Clone)]
 pub enum ValueType 
 {
-    Number(i32),
+    IntegerValue(i32),
+    FloatValue(f64),
     String(String),
 }
-impl fmt::Display for ValueType 
+impl std::fmt::Display for ValueType 
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result 
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result 
     {
         match self 
         {
-            ValueType::Number(n) => write!(f, "{}", n),
+            ValueType::IntegerValue(n) => write!(f, "{}", n),
+            ValueType::FloatValue(n) => write!(f, "{}", n),
             ValueType::String(s) => write!(f, "{}", s),
         }
     }
 }
 
+#[derive(Clone)]
 pub struct CellFunc 
 {
     // pub dependency_list: Vec<Weak<RefCell<Cell>>>,
     pub expression: Expr,
-    pub destination: Weak<RefCell<Cell>>, // USE OF Weak<T> is DOUBTFUL
-    pub value: ValueType,
+    pub destination: Weak<RefCell<Cell>>, // USE OF Weak<T> is DOUBTFUL // @viraaz11: kyu chahiye      // @Pianissimo3115: HATA SKTE AS WELL
+    pub value: ValueType,           // HATA SKTE
 }
 
-impl fmt::Display for CellFunc 
+impl std::fmt::Display for CellFunc 
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result 
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result 
     {
         write!(f, "{:?}", self.expression)
     }
 }
 
-impl fmt::Debug for CellFunc 
+impl std::fmt::Debug for CellFunc 
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result 
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result 
     {
         writeln!(f, "CellFunc {{")?;
 
@@ -59,46 +63,84 @@ impl fmt::Debug for CellFunc
             writeln!(f, "None (dropped)")?;
         }
 
-        writeln!(f, "\tdependency_list: [")?;
-        for dep in &self.dependency_list 
-        {
-            write!(f, "\t\t")?;
-            if let Some(dep_rc) = dep.upgrade() 
-            {
-                let dep = dep_rc.borrow();
-                writeln!(f, "Cell({}, {}),", dep.row, dep.column)?;
-            } 
-            else 
-            {
-                writeln!(f, "None (dropped),")?;
-            }
-        }
-        writeln!(f, "\t]")?;
-
         writeln!(f, "}}")
     }
 }
+impl CellFunc
+{
+    pub fn new(expression: Expr, destination: Weak<RefCell<Cell>>) -> Self 
+    {
+        CellFunc 
+        {
+            expression,
+            destination,
+            value: ValueType::IntegerValue(0), // Default value; will be updated later
+        }
+    }
+}
 
+#[derive(Debug, Clone)]
 pub struct Cell 
 {
     pub row: u32,
     pub col: u32,
     pub value: ValueType,
-    pub cell_func: CellFunc,
+    pub cell_func: Option<CellFunc>,
     pub children: BTreeSet<Weak<RefCell<Cell>>>, // USE OF Weak<T> is DOUBTFUL
+    pub valid: bool,
 }
 
 impl Cell 
 {
-    pub fn new(row: u32, col: u32, value: ValueType, cell_func: CellFunc) -> Self 
+    pub fn new(row: u32, col: u32) -> Self 
     {
         Cell 
         {
             row,
             col,
-            value,
-            cell_func,
+            value: ValueType::IntegerValue(0),
+            cell_func: None,
+            valid: true,
             children: BTreeSet::new(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Sheet
+{
+    pub data: Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>,
+    pub rows: u32,
+    pub columns: u32,
+    pub sheet_idx: u32,
+    pub sheet_name: String
+}
+impl Sheet
+{
+    pub fn new(sheet_idx: u32, sheet_name: String, R: u32) -> Self 
+    {
+        Sheet 
+        {
+            data: vec![RefCell::new(vec![]); R as usize], 
+            rows: R,
+            columns: 0,
+            sheet_idx,
+            sheet_name
+        }
+    }
+    pub fn resize(&mut self, R: u32, C:u32)
+    {
+        if(self.data.len() < R as usize) 
+        {
+            for _ in self.data.len()..R as usize 
+            {
+                let temp: Vec<Rc<RefCell<Cell>>> = vec![];
+                self.data.push(RefCell::new(temp));
+            }
+            if C < self.columns 
+            {
+                // to do by arjun 
+            }
+        } 
     }
 }
