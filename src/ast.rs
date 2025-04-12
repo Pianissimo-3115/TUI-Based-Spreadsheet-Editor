@@ -45,6 +45,29 @@ pub enum Expr {
     RangeOp{op: RangeFunction, start: Addr, end: Addr}, //Note: Should addr be under Box<>?
     BinOp(Box<Expr>, BinaryFunction, Box<Expr>),
 }
+impl Expr
+{
+    pub enum parent_type {
+        Single(Addr),
+        Range(Addr, Addr),
+    }
+
+
+    pub fn get_dependency_list (&self) -> Vec<parent_type> {
+        match self {
+            Number(_) => vec![],
+            Cell(addr) => vec![Single(addr.clone())],
+            MonoOp(_, expr) => expr.get_dependency_list(),
+            RangeOp{start, end, ..} => vec![Range(start.clone(), end.clone())],
+            BinOp(left, _, right) => {
+                let mut deps = left.get_dependency_list();
+                deps.append(&mut right.get_dependency_list());
+                deps
+            }
+        }
+    }
+
+}
 
 #[derive(Debug)]
 pub enum Addr {

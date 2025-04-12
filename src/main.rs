@@ -1,5 +1,7 @@
 pub mod ast;
 pub mod tokens;
+pub mod cell_operations;
+pub mod evaluate_operations;
 use lalrpop_util::lalrpop_mod;
 use logos::Logos;
 
