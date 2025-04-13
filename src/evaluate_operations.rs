@@ -9,6 +9,7 @@ use crate::cell_operations::{Sheet,Cell,CellFunc,ValueType};
 use std::rc::{Rc, Weak};
 #[allow(unused_imports)]
 use std::cell::RefCell;
+use std::collections::HashMap;
 // use crate::cell_operations::CellFunc;
 fn min_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
@@ -210,9 +211,9 @@ fn stdev_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u3
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Vec<Rc<RefCell<Cell>>>> = data[col as usize].borrow();
-            let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
-            let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            let temp1 = data[col as usize].borrow();
+            let temp2 = Rc::clone(&temp1[row as usize]);
+            let temp = temp2.borrow();
             if temp.valid == false 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
@@ -269,12 +270,12 @@ fn stdev_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u3
     Ok(ValueType::FloatValue(stdev))
 }
 
-fn sleep(seconds: i32) -> ()
+fn sleep(seconds: f64) -> ()
 {
-    thread::sleep(Duration::from_secs(seconds as u64));
+    thread::sleep(Duration::from_secs_f64(seconds));
 }
 
-fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<RefCell<Rc<Sheet>>>, dependencies: Vec<ParentType>) -> ()
+fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependencies: Vec<ParentType>) -> Result<(),String>       // DEPENDENCIES OF OLD_FUNC
 {
     for i in dependencies
     {
@@ -296,11 +297,20 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<RefCell<Rc<Sheet>>>, dep
                 
                 // } 
                 let Addr { sheet:sheet_num, row, col } = addr;
-                let temp1 = (*sheets)[sheet_num as usize].borrow();
-                let sheet = Rc::clone(&temp1);
-                let temp2 = sheet.data[col as usize].borrow();
-                let parent_cell = Rc::clone(&temp2[row as usize]);
-                let mut parent_cell = parent_cell.borrow_mut();
+                let sheet_ref = &(*sheets)[sheet_num as usize];
+                let sheet = sheet_ref.borrow();
+
+                let column_ref = &sheet.data[col as usize];
+                let column = column_ref.borrow();
+
+                let cell_rc = Rc::clone(&column[row as usize]);
+                let mut parent_cell = cell_rc.borrow_mut();
+                // let temp1 = (*sheets)[sheet_num as usize].borrow();
+                // let sheet = Rc::clone(&temp1);
+                // let temp2 = sheet.data[col as usize].borrow();
+                // let parent_cell = Rc::clone(&temp2[row as usize]);
+                // let mut parent_cell = parent_cell.borrow_mut();
+
                 parent_cell.children.remove(&(cell));
             },
             ParentType::Range(start, end) => 
@@ -309,27 +319,31 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<RefCell<Rc<Sheet>>>, dep
                 let Addr{sheet:s2, row:r2, col:c2} = end;
                 if s1 != s2 
                 {
-                    panic!("Should not happen!!!");
+                    return Err("Should not happen!!!".to_string());
                 }
                 for i in c1..=c2 
                 {
                     for j in r1..=r2 
                     {
-                        let temp1 = (*sheets)[s1 as usize].borrow();
-                        let sheet = Rc::clone(&temp1);
-                        let temp2 = sheet.data[i as usize].borrow();
-                        let parent_cell = Rc::clone(&temp2[j as usize]);
-                        let mut parent_cell = parent_cell.borrow_mut();
+                        let sheet_ref = &(*sheets)[s1 as usize];
+                        let sheet = sheet_ref.borrow();
+
+                        let column_ref = &sheet.data[i as usize];
+                        let column = column_ref.borrow();
+
+                        let cell_rc = Rc::clone(&column[j as usize]);
+                        let mut parent_cell = cell_rc.borrow_mut();
                         parent_cell.children.remove(&(cell));
                     }
                 }
             },
         }
     }
-
+    Ok(())
 } 
 
-fn eval(expr: &Expr, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<ValueType,String> 
+
+fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,String> 
 {
     match expr 
     {
@@ -341,11 +355,11 @@ fn eval(expr: &Expr, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<ValueType,Strin
             let sheet_num = *sheet_num;
             let col = *col;
             let row = *row;
-            let temp1 = (*sheets)[sheet_num as usize].borrow();
-            let sheet = Rc::clone(&temp1);
-            let temp2 = sheet.data[col as usize].borrow();
+            let sheet = *(*sheets)[sheet_num as usize].borrow();
+            
+            let temp2 = *sheet.data[col as usize].borrow();
             let parent_cell = Rc::clone(&temp2[row as usize]);
-            let parent_cell = parent_cell.borrow();
+            let parent_cell = *parent_cell.borrow();
             Ok(parent_cell.value.clone())
         }
         Expr::MonoOp(fun, exp) =>
@@ -356,8 +370,22 @@ fn eval(expr: &Expr, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<ValueType,Strin
                 {
                     let sleep_val = eval(exp, sheets)?;
                     match sleep_val {
-                        ValueType::IntegerValue(sec) => sleep(sec),
-                        ValueType::FloatValue(sec) => sleep(sec as i32),
+                        ValueType::IntegerValue(sec) => 
+                            {
+                                if sec < 0
+                                {
+                                    return Err("Negative sleep time".to_string());
+                                }
+                                sleep(sec as f64)
+                            },
+                        ValueType::FloatValue(sec) => 
+                        {
+                            if sec < 0.0
+                            {
+                                return Err("Negative sleep time".to_string());
+                            }
+                            sleep(sec)
+                        },
                         _ => return Err("Invalid argument for sleep".to_string()),
                     }
                     Ok(sleep_val)
@@ -370,35 +398,35 @@ fn eval(expr: &Expr, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<ValueType,Strin
             {
                 RangeFunction::Min => 
                 {
-                    let sheet_index = 0;
+                    let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
                     min_eval(&sheet.data, range)
                 },
                 RangeFunction::Max => 
                 {
-                    let sheet_index = 0;
+                    let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
                     max_eval(&sheet.data, range)
                 },
                 RangeFunction::Sum => 
                 {
-                    let sheet_index = 0;
+                    let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
                     sum_eval(&sheet.data, range)
                 },
                 RangeFunction::Avg => 
                 {
-                    let sheet_index = 0;
+                    let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
                     avg_eval(&sheet.data, range)
                 },
                 RangeFunction::Stdev => 
                 {
-                    let sheet_index = 0;
+                    let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
                     stdev_eval(&sheet.data, range)
@@ -549,7 +577,7 @@ fn eval(expr: &Expr, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<ValueType,Strin
 }
 
 // this would be a recursive function just like eval of an ast
-fn calculate(cell:&mut Cell, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<i32,String>
+fn calculate(cell:&mut Cell, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<i32,String>
 {
     let cell_func: &Option<CellFunc> = &cell.cell_func;
     match cell_func
@@ -557,8 +585,18 @@ fn calculate(cell:&mut Cell, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<i32,Str
         Some(func) =>
         {   
             let expr = &func.expression;
-            let temp = eval(expr, sheets).unwrap();
-            cell.value = temp;
+            let temp = eval(expr, &sheets);
+            if let Err(err) = temp 
+            {
+                cell.valid = false;
+                return Err(err);
+            }
+            else {
+                let temp = temp.unwrap();
+                cell.value = temp;
+                cell.valid = true;
+            }
+            // cell.value = temp;
             return Ok(1);
         }
         None => 
@@ -568,7 +606,7 @@ fn calculate(cell:&mut Cell, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<i32,Str
     }  
 }
 
-fn update_parent_avls(cell:&Addr, sheets: &mut Vec<RefCell<Rc<Sheet>>>, dependencies: Vec<ParentType>)
+fn update_parent_avls(cell:&Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependencies: Vec<ParentType>) -> Result<(),String>
 {
     for i in dependencies
     {
@@ -576,12 +614,19 @@ fn update_parent_avls(cell:&Addr, sheets: &mut Vec<RefCell<Rc<Sheet>>>, dependen
         {
             ParentType::Single(addr) => 
             { 
-                let Addr { sheet:sheet_num, row, col } = addr;
-                let temp1 = (*sheets)[sheet_num as usize].borrow();
-                let sheet = Rc::clone(&temp1);
-                let temp2 = sheet.data[col as usize].borrow();
-                let parent_cell = Rc::clone(&temp2[row as usize]);
-                let mut parent_cell = parent_cell.borrow_mut();
+                // let sheet = *(*sheets)[addr.sheet as usize].borrow();
+
+                
+                // let parent_cell = *sheet.data[addr.col as usize].borrow()[addr.row as usize].clone();
+                // let mut parent_cell = *parent_cell.borrow_mut();
+                let sheet_ref = &(*sheets)[addr.sheet as usize];
+                let sheet = sheet_ref.borrow();
+
+                let column_ref = &sheet.data[addr.col as usize];
+                let column = column_ref.borrow();
+
+                let cell_rc = Rc::clone(&column[addr.row as usize]);
+                let parent_cell = cell_rc.borrow();
                 parent_cell.children.insert((cell).clone());
             },
             ParentType::Range(start, end) => 
@@ -590,17 +635,20 @@ fn update_parent_avls(cell:&Addr, sheets: &mut Vec<RefCell<Rc<Sheet>>>, dependen
                 let Addr{sheet:s2, row:r2, col:c2} = end;
                 if s1 != s2 
                 {
-                    panic!("Should not happen!!!");
+                    return Err("Should not happen!!!".to_string());
                 }
                 for i in c1..=c2 
                 {
                     for j in r1..=r2 
                     {
-                        let temp1 = (*sheets)[s1 as usize].borrow();
-                        let sheet = Rc::clone(&temp1);
-                        let temp2 = sheet.data[i as usize].borrow();
-                        let parent_cell = Rc::clone(&temp2[j as usize]);
-                        let mut parent_cell = parent_cell.borrow_mut();
+                        let sheet_ref = &(*sheets)[addr.sheet as usize];
+                        let sheet = sheet_ref.borrow();
+
+                        let column_ref = &sheet.data[i as usize];
+                        let column = column_ref.borrow();
+
+                        let cell_rc = Rc::clone(&column[j as usize]);
+                        let parent_cell = cell_rc.borrow();
                         parent_cell.children.insert((cell).clone());
                     }
                 }
@@ -608,5 +656,108 @@ fn update_parent_avls(cell:&Addr, sheets: &mut Vec<RefCell<Rc<Sheet>>>, dependen
         }
         
     }
+    Ok(())
 }
 
+
+fn dfs(sheets: &Vec<Rc<RefCell<Sheet>>>,cell: &Addr, visited: &mut HashMap<&Addr>, rec_stack: &mut HashMap<&Addr>, stack: &mut Vec) -> Result<(),String>     
+{
+    rec_stack.insert(current_cell, true); 
+
+    let sheet_ref = &(*sheets)[cell.sheet as usize];
+    let sheet = sheet_ref.borrow();
+
+    let column_ref = &sheet.data[cell.col as usize];
+    let column = column_ref.borrow();
+
+    let cell_rc = Rc::clone(&column[cell.row as usize]);
+    let curr_cell = cell_rc.borrow();
+
+    let ordered_set = curr_cell.children.clone();
+    for i in &ordered_set
+    {
+        if rec_stack.contains_key(i) 
+        {
+            return Err(format!("Cyclic dependency detected at cell ({}, {})", i.row, i.col));
+        }
+        else if visited.contains_key(i) 
+        {
+            continue;
+        }
+        else 
+        {
+            dfs(sheets, i, visited, rec_stack, stack)?;
+        }
+    }
+    visited.insert(current_cell, true); 
+    rec_stack.remove(current_cell);
+    stack.push(current_cell.Addr.clone()); 
+    Ok(())
+}
+
+fn topological_sort(sheets: &Vec<Rc<RefCell<Sheet>>>, addr:Addr) -> Result<Vec<Addr>,String> 
+{
+    let mut visited: HashMap<&Addr, bool> = HashMap::new();
+    let mut rec_stack: HashMap<&Addr, bool> = HashMap::new();
+    let mut stack: Vec<Addr> = Vec::new();
+    let temp = dfs(sheets, &addr, &mut visited, &mut rec_stack, &mut stack);
+    if let Err(_) = temp 
+    {
+        return temp;
+    }
+    Ok(stack)
+}
+
+
+fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), String> // ???      // ha ek hi  type ka error nhi
+{
+    let ret = topological_sort(sheets, cell)?;
+    let negative_in_sleep = false;
+    for i in ret
+    {
+        let sheet_ref = &(*sheets)[i.sheet as usize];
+        let sheet = sheet_ref.borrow();
+
+        let column_ref = &sheet.data[i.col as usize];
+        let column = column_ref.borrow();
+
+        let cell_rc = Rc::clone(&column[i.row as usize]);
+        let mut curr_cell = cell_rc.borrow_mut();
+
+        match curr_cell.cell_func
+        {
+            Some(ref func) => 
+            {
+                if let Some(ref expr) = func.expression 
+                {
+                    calculate(&mut curr_cell, &sheets)?;
+                }
+
+            },
+            None => Ok(()),
+        }
+        
+    }
+
+    Ok(())
+    
+}
+
+fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: Cell_func) -> Result<(), String>   /////// OWNERSHIP NAHI LENI THI!!!!!!!!
+{
+    let sheet_ref = &(*sheets)[cell.sheet as usize];
+    let sheet = sheet_ref.borrow();
+
+    let column_ref = &sheet.data[cell.col as usize];
+    let column = column_ref.borrow();
+
+    let cell_rc = Rc::clone(&column[cell.row as usize]);
+    let mut curr_cell = cell_rc.borrow_mut();
+    
+    let dependencies = curr_cell.cell_func.unwrap().clone().expression.get_dependency_list();       ////// ISKO THODA DEKH LENA
+    remove_old_dependencies(cell, sheets, dependencies.clone())?;
+    update_parent_avls(cell, sheets, dependencies)?;
+    update_children(sheets, cell)?;
+    
+    Ok(())
+}

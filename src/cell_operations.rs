@@ -131,16 +131,16 @@ impl Sheet
             sheet_name
         }
     }
-    pub fn resize(&mut self, R: u32, C:u32)         /////////////////////////////////////////// PENDING
+    pub fn resize(&mut self, row_num: u32, col_num:u32)         /////////////////////////////////////////// PENDING
     {
-        if(self.data.len() < R as usize) 
+        if(self.data.len() < row_num as usize) 
         {
-            for _ in self.data.len()..R as usize 
+            for _ in self.data.len()..row_num as usize 
             {
                 let temp: Vec<Rc<RefCell<Cell>>> = vec![];
                 self.data.push(RefCell::new(temp));
             }
-            if C < self.columns 
+            if col_num < self.columns 
             {
                 // to do by arjun 
             }
