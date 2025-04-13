@@ -1,5 +1,7 @@
 #![allow(unused)]
+use std::cmp::{PartialEq, Eq, Ordering, PartialOrd, Ord};
 
+use crate::cell_operations::ValueType;
 pub enum ParserError{
     NumberTooLargeAt(String, u32, u32),
 }
@@ -39,7 +41,8 @@ pub enum DisplayCommand {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Number(i32),
+    Integer(i32),
+    Float(f64),
     Cell(Addr),
     MonoOp(MonoFunction, Box<Expr>),
     RangeOp{op: RangeFunction, start: Addr, end: Addr}, //Note: Should addr be under Box<>?
@@ -65,9 +68,12 @@ impl Expr
     // }
 
 
-    pub fn get_dependency_list (&self) -> Vec<ParentType> {
-        match self {
-            Expr::Number(_) => vec![],
+    pub fn get_dependency_list (&self) -> Vec<ParentType> 
+    {
+        match self 
+        {
+            Expr::Integer(_) => vec![],
+            Expr::Float(_) => vec![],
             Expr::Cell(addr) => vec![ParentType::Single(addr.clone())],
             Expr::MonoOp(_, expr) => expr.get_dependency_list(),
             Expr::RangeOp{start, end, ..} => vec![ParentType::Range(start.clone(), end.clone())],
@@ -81,11 +87,32 @@ impl Expr
 
 }
 
-#[derive(Debug, Clone)]
-pub enum Addr {
-    Local { row: u32, col: u32}, //NOTE: check all different int datatypes used a at different places and verify.
-    Global {sheet: String, row: u32, col: u32} //NOTE: sheet should be String or str or &str or something else?!?.
+// pub enum Addr {
+//     Local { row: u32, col: u32}, //NOTE: check all different int datatypes used a at different places and verify.
+//     Global {sheet: u32, row: u32, col: u32} //NOTE: sheet should be String or str or &str or something else?!?.
+// }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addr {
+    pub sheet: u32,
+    pub row: u32,
+    pub col: u32,
 }
+
+impl PartialOrd for Addr {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Addr {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.sheet
+            .cmp(&other.sheet)
+            .then(self.row.cmp(&other.row))
+            .then(self.col.cmp(&other.col))
+    }
+}
+
 
 // #[derive(Debug)]
 // pub enum Range {

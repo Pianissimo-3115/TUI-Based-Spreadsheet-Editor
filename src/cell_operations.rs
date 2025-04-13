@@ -1,10 +1,11 @@
 ///////////////// ONLY COMPLETED TOKENS FOR NUMERAL CELL FUNCS; STRING CELL FUNCS NOT DONE
-///////////////// HAVE TO MAKE LEXER BY OWN 😢  FOR COMPLEX FUNCTIONS AS PROPOSED
-use crate::ast::Expr;
+///////////////// HAVE TO MAKE LEXER BY OWN 😢  FOR COMPLEX FUNCTIONS AS PROPOSED       // ban gaya yay
+use crate::ast::{Expr, Addr};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 #[allow(unused_imports)]
 use std::rc::{Rc, Weak};
+
 
 #[derive(Debug, Clone)]
 pub enum ValueType 
@@ -84,20 +85,22 @@ pub struct Cell
 {
     pub row: u32,
     pub col: u32,
+    pub addr: Addr,
     pub value: ValueType,
     pub cell_func: Option<CellFunc>,
-    pub children: BTreeSet<Weak<RefCell<Cell>>>, // USE OF Weak<T> is DOUBTFUL
+    pub children: BTreeSet<Addr>, // USE OF Weak<T> is DOUBTFUL
     pub valid: bool,
 }
 
 impl Cell 
 {
-    pub fn new(row: u32, col: u32) -> Self 
+    pub fn new(row: u32, col: u32, addr: Addr) -> Self 
     {
         Cell 
         {
             row,
             col,
+            addr,
             value: ValueType::IntegerValue(0),
             cell_func: None,
             valid: true,
@@ -117,18 +120,18 @@ pub struct Sheet
 }
 impl Sheet
 {
-    pub fn new(sheet_idx: u32, sheet_name: String, R: u32) -> Self 
+    pub fn new(sheet_idx: u32, sheet_name: String, col: u32) -> Self 
     {
         Sheet 
         {
-            data: vec![RefCell::new(vec![]); R as usize], 
-            rows: R,
-            columns: 0,
+            data: vec![RefCell::new(vec![]); col as usize], 
+            rows: 0,
+            columns: col,
             sheet_idx,
             sheet_name
         }
     }
-    pub fn resize(&mut self, R: u32, C:u32)
+    pub fn resize(&mut self, R: u32, C:u32)         /////////////////////////////////////////// PENDING
     {
         if(self.data.len() < R as usize) 
         {

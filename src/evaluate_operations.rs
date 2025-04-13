@@ -1,14 +1,16 @@
+use std::fmt::Error;
+// use std::ptr::with_exposed_provenance;
 // use std::cmp;
 use std::thread;
 use std::time::Duration;
-use crate::ast::{Addr, ParentType};
-use crate::cell_operations::{Cell,CellFunc,ValueType};
+use crate::ast::{Addr, BinaryFunction, Expr, MonoFunction, ParentType, RangeFunction};
+use crate::cell_operations::{Sheet,Cell,CellFunc,ValueType};
 #[allow(unused_imports)]
 use std::rc::{Rc, Weak};
 #[allow(unused_imports)]
 use std::cell::RefCell;
 // use crate::cell_operations::CellFunc;
-fn min_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn min_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -58,7 +60,7 @@ fn min_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(
     }
 }
 
-fn max_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn max_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -108,7 +110,7 @@ fn max_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(
     }
 }
 
-fn sum_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn sum_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -152,7 +154,7 @@ fn sum_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(
     }
 }
 
-fn avg_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn avg_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -197,7 +199,7 @@ fn avg_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(
     }
 }
 
-fn stdev_eval(data: &mut Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn stdev_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     let cell1: (u32, u32) = range.0;
     let cell2: (u32, u32) = range.1;
@@ -272,7 +274,7 @@ fn sleep(seconds: i32) -> ()
     thread::sleep(Duration::from_secs(seconds as u64));
 }
 
-fn remove_old_dependencies(sheets: &mut Vec<RefCell<Rc<Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>>>>, dependencies: Vec<ParentType>) -> ()
+fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<RefCell<Rc<Sheet>>>, dependencies: Vec<ParentType>) -> ()
 {
     for i in dependencies
     {
@@ -280,30 +282,331 @@ fn remove_old_dependencies(sheets: &mut Vec<RefCell<Rc<Vec<RefCell<Vec<Rc<RefCel
         {
             ParentType::Single(addr) => 
             {
-                if let Addr::Local { row, col } = addr 
-                {
-                    
-                } 
-                else if let Addr::Global { sheet, row, col } = addr 
-                {
-                    
-                } 
+                // if let Addr { sheet, row, col } = addr 
+                // {
+                //     let temp1 = sheets[current_sheet as usize].borrow().clone();
+                //     let temp2 = temp1.as_ref();
+                //     let c = temp2.data[col as usize].borrow();
+                //     let cell_rc = &c[row as usize];
+                //     let mut parent_cell = cell_rc.borrow_mut();
+                //     let addr_of_cell = cell.upgrade().unwrap().borrow().addr.clone();
+
+                //     parent_cell.children.remove(&(cell.upgrade().unwrap().borrow().addr));       
+
+                
+                // } 
+                let Addr { sheet:sheet_num, row, col } = addr;
+                let temp1 = (*sheets)[sheet_num as usize].borrow();
+                let sheet = Rc::clone(&temp1);
+                let temp2 = sheet.data[col as usize].borrow();
+                let parent_cell = Rc::clone(&temp2[row as usize]);
+                let mut parent_cell = parent_cell.borrow_mut();
+                parent_cell.children.remove(&(cell));
             },
             ParentType::Range(start, end) => 
             {
-                
+                let Addr{sheet:s1, row:r1, col:c1} = start;
+                let Addr{sheet:s2, row:r2, col:c2} = end;
+                if s1 != s2 
+                {
+                    panic!("Should not happen!!!");
+                }
+                for i in c1..=c2 
+                {
+                    for j in r1..=r2 
+                    {
+                        let temp1 = (*sheets)[s1 as usize].borrow();
+                        let sheet = Rc::clone(&temp1);
+                        let temp2 = sheet.data[i as usize].borrow();
+                        let parent_cell = Rc::clone(&temp2[j as usize]);
+                        let mut parent_cell = parent_cell.borrow_mut();
+                        parent_cell.children.remove(&(cell));
+                    }
+                }
             },
         }
     }
 
 } 
 
-
-
-
-
-fn calculate(data: &Vec<&mut Vec<&mut Cell>>, cell: &mut Cell) -> Result<i32, String> 
+fn eval(expr: &Expr, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<ValueType,String> 
 {
-    let cell_func = &cell.CellFunc;
-    
+    match expr 
+    {
+        Expr::Integer(n) => Ok(ValueType::IntegerValue(*n)),
+        Expr::Float(n) => Ok(ValueType::FloatValue(*n)),
+        Expr::Cell(addr) =>
+        {
+            let Addr { sheet:sheet_num, row, col } = addr;
+            let sheet_num = *sheet_num;
+            let col = *col;
+            let row = *row;
+            let temp1 = (*sheets)[sheet_num as usize].borrow();
+            let sheet = Rc::clone(&temp1);
+            let temp2 = sheet.data[col as usize].borrow();
+            let parent_cell = Rc::clone(&temp2[row as usize]);
+            let parent_cell = parent_cell.borrow();
+            Ok(parent_cell.value.clone())
+        }
+        Expr::MonoOp(fun, exp) =>
+        {
+            match fun 
+            {
+                MonoFunction::Sleep =>
+                {
+                    let sleep_val = eval(exp, sheets)?;
+                    match sleep_val {
+                        ValueType::IntegerValue(sec) => sleep(sec),
+                        ValueType::FloatValue(sec) => sleep(sec as i32),
+                        _ => return Err("Invalid argument for sleep".to_string()),
+                    }
+                    Ok(sleep_val)
+                }
+            }
+        }
+        Expr::RangeOp{op,start, end} =>
+        {
+            match op 
+            {
+                RangeFunction::Min => 
+                {
+                    let sheet_index = 0;
+                    let sheet = (*sheets)[sheet_index].borrow().clone();
+                    let range = ((start.row, start.col), (end.row,end.col));
+                    min_eval(&sheet.data, range)
+                },
+                RangeFunction::Max => 
+                {
+                    let sheet_index = 0;
+                    let sheet = (*sheets)[sheet_index].borrow().clone();
+                    let range = ((start.row, start.col), (end.row,end.col));
+                    max_eval(&sheet.data, range)
+                },
+                RangeFunction::Sum => 
+                {
+                    let sheet_index = 0;
+                    let sheet = (*sheets)[sheet_index].borrow().clone();
+                    let range = ((start.row, start.col), (end.row,end.col));
+                    sum_eval(&sheet.data, range)
+                },
+                RangeFunction::Avg => 
+                {
+                    let sheet_index = 0;
+                    let sheet = (*sheets)[sheet_index].borrow().clone();
+                    let range = ((start.row, start.col), (end.row,end.col));
+                    avg_eval(&sheet.data, range)
+                },
+                RangeFunction::Stdev => 
+                {
+                    let sheet_index = 0;
+                    let sheet = (*sheets)[sheet_index].borrow().clone();
+                    let range = ((start.row, start.col), (end.row,end.col));
+                    stdev_eval(&sheet.data, range)
+                },
+            }
+        }
+        Expr:: BinOp(exp1,func , exp2 ) =>
+        {
+            match func 
+            {
+                BinaryFunction:: Mul =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left,right) 
+                    {
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue(n*m))
+                        }
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue((n as f64)*m))
+                        }
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue(n*(m as f64)))
+                        }
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) =>
+                        {
+                            Ok(ValueType::IntegerValue(n*m))
+                        }
+                        (_,_) =>
+                        {
+                            Err("String used in Multiplication".to_string())
+                        }
+                    }
+                },
+                BinaryFunction::Add =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) {
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue(n + m))
+                        }
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue(n as f64 + m))
+                        }
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue(n + m as f64))
+                        }
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) =>
+                        {
+                            Ok(ValueType::IntegerValue(n + m))
+                        }
+                        (_, _) =>
+                        {
+                            Err("String used in Addition".to_string())
+                        }
+                    }
+                },
+                BinaryFunction::Sub =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) {
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue(n - m))
+                        }
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue(n as f64 - m))
+                        }
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) =>
+                        {
+                            Ok(ValueType::FloatValue(n - m as f64))
+                        }
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) =>
+                        {
+                            Ok(ValueType::IntegerValue(n - m))
+                        }
+                        (_, _) =>
+                        {
+                            Err("String used in Subtraction".to_string())
+                        }
+                    }
+                },
+                BinaryFunction::Div =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => 
+                        {
+                            if m == 0.0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else {
+                                Ok(ValueType::FloatValue(n / m))
+                            }
+                        },
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => 
+                        {
+                            if m == 0.0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else {
+                                Ok(ValueType::FloatValue(n as f64 / m))
+                            }
+                        },
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => 
+                        {
+                            if m == 0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else {
+                                Ok(ValueType::FloatValue(n / m as f64))
+                            }
+                        },
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => 
+                        {
+                            if m == 0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else {
+                                Ok(ValueType::IntegerValue(n / m))
+                            }
+                        },
+                        (_, _) =>
+                        {
+                            Err("String used in Division".to_string())
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
+
+// this would be a recursive function just like eval of an ast
+fn calculate(cell:&mut Cell, sheets: &Vec<RefCell<Rc<Sheet>>>) -> Result<i32,String>
+{
+    let cell_func: &Option<CellFunc> = &cell.cell_func;
+    match cell_func
+    {
+        Some(func) =>
+        {   
+            let expr = &func.expression;
+            let temp = eval(expr, sheets).unwrap();
+            cell.value = temp;
+            return Ok(1);
+        }
+        None => 
+        {
+            return Err(format!("No function associated to the cell at ({}, {})",cell.row, cell.col));
+        }
+    }  
+}
+
+fn update_parent_avls(cell:&Addr, sheets: &mut Vec<RefCell<Rc<Sheet>>>, dependencies: Vec<ParentType>)
+{
+    for i in dependencies
+    {
+        match i 
+        {
+            ParentType::Single(addr) => 
+            { 
+                let Addr { sheet:sheet_num, row, col } = addr;
+                let temp1 = (*sheets)[sheet_num as usize].borrow();
+                let sheet = Rc::clone(&temp1);
+                let temp2 = sheet.data[col as usize].borrow();
+                let parent_cell = Rc::clone(&temp2[row as usize]);
+                let mut parent_cell = parent_cell.borrow_mut();
+                parent_cell.children.insert((cell).clone());
+            },
+            ParentType::Range(start, end) => 
+            {
+                let Addr{sheet:s1, row:r1, col:c1} = start;
+                let Addr{sheet:s2, row:r2, col:c2} = end;
+                if s1 != s2 
+                {
+                    panic!("Should not happen!!!");
+                }
+                for i in c1..=c2 
+                {
+                    for j in r1..=r2 
+                    {
+                        let temp1 = (*sheets)[s1 as usize].borrow();
+                        let sheet = Rc::clone(&temp1);
+                        let temp2 = sheet.data[i as usize].borrow();
+                        let parent_cell = Rc::clone(&temp2[j as usize]);
+                        let mut parent_cell = parent_cell.borrow_mut();
+                        parent_cell.children.insert((cell).clone());
+                    }
+                }
+            },
+        }
+        
+    }
+}
+
