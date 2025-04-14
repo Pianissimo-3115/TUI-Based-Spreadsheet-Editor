@@ -133,7 +133,7 @@ impl Sheet
     }
     pub fn resize(&mut self, row_num: u32, col_num:u32)         /////////////////////////////////////////// PENDING
     {
-        if(self.data.len() < row_num as usize) 
+        if self.data.len() < row_num as usize
         {
             for _ in self.data.len()..row_num as usize 
             {

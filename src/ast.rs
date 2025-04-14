@@ -91,7 +91,7 @@ impl Expr
 //     Local { row: u32, col: u32}, //NOTE: check all different int datatypes used a at different places and verify.
 //     Global {sheet: u32, row: u32, col: u32} //NOTE: sheet should be String or str or &str or something else?!?.
 // }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Addr {
     pub sheet: u32,
     pub row: u32,
