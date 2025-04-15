@@ -1,7 +1,7 @@
 use crate::tokens::{Token, LexicalError};
 use crate::ast::*;
 
-grammar;
+grammar(curr_sheet: u32);
 
 
 extern {
@@ -69,8 +69,8 @@ FactorOp: BinaryFunction = {
 };
 
 Atom: Box<Expr> = {
-    "int" => Box::new(Expr::Number(<>)),
-    "-" <i: "int"> => Box::new(Expr::Number(-i)),
+    "int" => Box::new(Expr::Integer(<>)),
+    "-" <i: "int"> => Box::new(Expr::Integer(-i)),
     <Addr> => Box::new(Expr::Cell(<>)),
     <f: RangeFuncs> "(" <a1: Addr> ":" <a2: Addr> ")" => Box::new(Expr::RangeOp{op: f, start: a1, end: a2}),
     <f: MonoFuncs> "(" <e: Expr> ")" => Box::new(Expr::MonoOp(f, e)),
@@ -80,10 +80,10 @@ Atom: Box<Expr> = {
 Addr: Addr = {
     <cr: "localcell"> => { 
         let (col, row) = cr;
-        Addr::Local{col, row} },  //NOTE: Why am I doing Box::new everywhere?. Also, how come tokens returns Option<_> but stufff is working?!?
+        Addr{sheet: curr_sheet, col, row} },  //NOTE: Why am I doing Box::new everywhere?. Also, how come tokens returns Option<_> but stufff is working?!?
     <scr: "globalcell"> => { 
         let (sheet, col, row) = scr;
-        Addr::Global{sheet, col, row} },
+        Addr{sheet: 99, col, row} },   //         Addr{sheet, col, row} },
 }
 
 RangeFuncs: RangeFunction = {
