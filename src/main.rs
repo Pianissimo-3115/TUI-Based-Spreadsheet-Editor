@@ -5,7 +5,7 @@ pub mod evaluate_operations;
 use lalrpop_util::lalrpop_mod;
 use lalrpop_util::ParseError;
 use logos::Logos;
-use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
+use crate::cell_operations::{ CellFunc, Sheet, ValueType};
 use crate::evaluate_operations::evaluate;
 use crate::tokens::LexicalError;
 use std::io::{self, Write};
@@ -93,8 +93,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
 //sheets: &Vec<Rc<RefCell<Sheet>>>
 
-    let sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
-    let curr_sheet = &sheets[0].borrow();
+    let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
+
     let mut exit : bool = false;
 
     let mut curr_col: usize= 0;
@@ -103,8 +103,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut last_err_msg = String::from("ok");
     
     'mainloop: while !exit {
-        display_sheet(curr_col as u32, curr_row as u32, curr_sheet);
-
+        if show_window {
+            // let curr_sheet = ;
+            display_sheet(curr_col as u32, curr_row as u32, &sheets[0].borrow());
+        }
         let mut inp = String::new();
 
         print!("({}) >> ", last_err_msg);
@@ -133,7 +135,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
 
         match ast {
-            ast::Command::DisplayCmd(d_cmd) =>
+            ast::Command::DisplayCmd(d_cmd) => {
+                let curr_sheet = &sheets[0].borrow();
                 match d_cmd {
                     ast::DisplayCommand::EnableOut => show_window = true,
                     ast::DisplayCommand::DisableOut => show_window = false,
@@ -151,9 +154,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     ast::DisplayCommand::MoveDown => curr_row = cmp::max(0, cmp::min(curr_row as i64 -1 , curr_sheet.rows as i64 - 10)) as usize,
                     ast::DisplayCommand::MoveRight => curr_col = cmp::max(0, cmp::min(curr_col as i64 +1 , curr_sheet.columns as i64 - 10)) as usize,
                     ast::DisplayCommand::MoveLeft => curr_col = cmp::max(0, cmp::min(curr_col as i64 -1 , curr_sheet.columns as i64 - 10)) as usize,
-                },
+                }},
             ast::Command::Quit => exit = true,
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
+                let old_func: Option<CellFunc>;
+                {
+                let curr_sheet = &sheets[0].borrow();
                 if a.row >= curr_sheet.rows {
                     last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
                     continue 'mainloop;
@@ -198,11 +204,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
                 let target_cell_rc = Rc::clone(&mut (curr_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
                 let mut target_cell_ref = target_cell_rc.borrow_mut();
-                let old_func = (&target_cell_ref).cell_func;
+                old_func = (&target_cell_ref).cell_func.clone();
                 (&mut target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex, destination: Rc::downgrade(&target_cell_rc)});
+            }
 
-                evaluate(sheets, a, old_func);                
-            },
+                evaluate(&mut sheets, &a, &old_func)?;                
+            }
 
         }
         

@@ -1,17 +1,17 @@
-use std::fmt::Error;
+// use std::fmt::Error;
 // use std::ptr::with_exposed_provenance;
 // use std::cmp;
 use std::thread;
 use std::time::Duration;
 use crate::ast::{Addr, BinaryFunction, Expr, MonoFunction, ParentType, RangeFunction};
-use crate::cell_operations::{Sheet,Cell,CellFunc,ValueType};
+use crate::cell_operations::{Sheet,Cell,CellFunc,ValueType,Column};
 #[allow(unused_imports)]
 use std::rc::{Rc, Weak};
 #[allow(unused_imports)]
 use std::cell::RefCell;
 use std::collections::HashMap;
 // use crate::cell_operations::CellFunc;
-fn min_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn min_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -23,7 +23,7 @@ fn min_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Vec<Rc<RefCell<Cell>>>> = data[col as usize].borrow();
+            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
             if temp.valid == false 
@@ -61,7 +61,7 @@ fn min_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,
     }
 }
 
-fn max_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn max_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -73,7 +73,7 @@ fn max_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Vec<Rc<RefCell<Cell>>>> = data[col as usize].borrow();
+            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
             if temp.valid == false 
@@ -111,7 +111,7 @@ fn max_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,
     }
 }
 
-fn sum_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn sum_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -123,7 +123,7 @@ fn sum_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Vec<Rc<RefCell<Cell>>>> = data[col as usize].borrow();
+            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
             if temp.valid == false 
@@ -155,7 +155,7 @@ fn sum_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,
     }
 }
 
-fn avg_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn avg_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -167,7 +167,7 @@ fn avg_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Vec<Rc<RefCell<Cell>>>> = data[col as usize].borrow();
+            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
             if temp.valid == false 
@@ -200,7 +200,7 @@ fn avg_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,
     }
 }
 
-fn stdev_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn stdev_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     let cell1: (u32, u32) = range.0;
     let cell2: (u32, u32) = range.1;
@@ -244,7 +244,7 @@ fn stdev_eval(data: &Vec<RefCell<Vec<Rc<RefCell<Cell>>>>>, range: ((u32,u32),(u3
 
     for col in cell1.1..=cell2.1 {
         for row in cell1.0..=cell2.0 {
-            let temp1: std::cell::Ref<'_, Vec<Rc<RefCell<Cell>>>> = data[col as usize].borrow();
+            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
             if temp.valid == false 
@@ -723,7 +723,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
         let column = column_ref.borrow();
 
         let cell_rc = Rc::clone(&column[i.row as usize]);
-        let mut curr_cell = cell_rc.borrow_mut();
+        let curr_cell = cell_rc.borrow();
 
         // match curr_cell.cell_func
         // {
@@ -743,7 +743,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
     
 }
 
-fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Option<CellFunc>) -> Result<(), String>   /////// OWNERSHIP NAHI LENI THI!!!!!!!!
+pub fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Option<CellFunc>) -> Result<(), String>   /////// OWNERSHIP NAHI LENI THI!!!!!!!!
 {
     let cell_rc = {
         let sheet_ref = &(*sheets)[cell.sheet as usize];
@@ -780,7 +780,7 @@ fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Option
             let func = curr_cell.cell_func.clone();
             let mut curr_cell = cell_rc.borrow_mut();
             curr_cell.cell_func = old_func.clone();
-            evaluate(sheets,cell, &func);
+            evaluate(sheets,cell, &func)?;
         }
         return Err(strr);
     }    
