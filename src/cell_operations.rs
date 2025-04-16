@@ -133,6 +133,10 @@ impl Index<usize> for Column   //NOTE: This is not needed for my part, I guessed
     type Output = Rc<RefCell<Cell>>;
 
     fn index(&self, ind: usize) -> &Self::Output {
+        // if self.cells.len() <= ind
+        // {
+        //     return &Rc::new(RefCell::new(Cell::new(Addr{sheet: self.sheet_number, row: ind as u32, col: self.col_number}))); //NOTE: Ye mut, & mut waherah dekh lena theek se koi please. (┬┬﹏┬┬)}
+        // }
         &self.cells[ind]
     }   
 }

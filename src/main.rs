@@ -83,14 +83,16 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet)
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
 
-    let r: u32 = std::env::args().nth(1)
-        .expect("Row number not entered (First arg missing)")
-        .parse().expect("Invalid input for Row number (First arg)");
+    // let r: u32 = std::env::args().nth(1)
+    //     .expect("Row number not entered (First arg missing)")
+    //     .parse().expect("Invalid input for Row number (First arg)");
     
-    let c: u32 = std::env::args().nth(2)
-        .expect("Column number not entered (Second arg missing)")
-        .parse().expect("Invalid input for Column number (Second arg)");
+    // let c: u32 = std::env::args().nth(2)
+    //     .expect("Column number not entered (Second arg missing)")
+    //     .parse().expect("Invalid input for Column number (Second arg)");
 
+    let r: u32 = 10; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+    let c: u32 = 10; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
 //sheets: &Vec<Rc<RefCell<Sheet>>>
 
     let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
