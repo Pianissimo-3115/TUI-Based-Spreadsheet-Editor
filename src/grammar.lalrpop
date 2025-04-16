@@ -42,24 +42,34 @@ extern {
   }
 }
 
-pub Command: Command = {
-    <DisplayCommand> => Command::DisplayCmd(<>),
-    <a: Addr> "=" <e: Expr> => Command::AssignCmd(a, e),
-    "Quit" => Command::Quit,
+pub Command: (Command, Vec<ParentType>) = {
+    <c_v: DisplayCommand> => {
+        let (c, v) = c_v;
+        (Command::DisplayCmd(c), v)},
+    <a: Addr> "=" <e_v: Expr> => {
+        let (e, v) = e_v;
+        (Command::AssignCmd(a, e), v)}, //Target Addr is not included in the address vector
+    "Quit" => (Command::Quit, vec![]),
 }
 
-Expr: Box<Expr> = { // (1)
-    Expr ExprOp Factor => Box::new(Expr::BinOp(<>)), // (2)
+Expr: (Box<Expr>, Vec<ParentType>) = { // (1)
+    <e_v1: Expr> <o: ExprOp> <f_v2: Factor> => { 
+        let ((e, mut v1), (f, mut v2)) = (e_v1, f_v2);
+        v1.append(&mut v2);
+        (Box::new(Expr::BinOp(e, o, f)), v1)},
     Factor,
 };
 
-ExprOp: BinaryFunction = { // (3)
+ExprOp: BinaryFunction = { 
     "+" => BinaryFunction::Add,
     "-" => BinaryFunction::Sub,
 };
 
-Factor: Box<Expr> = {
-    Factor FactorOp Atom => Box::new(Expr::BinOp(<>)),
+Factor: (Box<Expr>, Vec<ParentType>) = {
+    <f_v1: Factor> <o: FactorOp> <a_v2: Atom> => { 
+    let ((f, mut v1), (a, mut v2)) = (f_v1, a_v2);
+    v1.append(&mut v2);
+    (Box::new(Expr::BinOp(f, o, a)), v1)},  
     Atom,
 };
 
@@ -68,12 +78,12 @@ FactorOp: BinaryFunction = {
     "/" => BinaryFunction::Div,
 };
 
-Atom: Box<Expr> = {
-    "int" => Box::new(Expr::Integer(<>)),
-    "-" <i: "int"> => Box::new(Expr::Integer(-i)),
-    <Addr> => Box::new(Expr::Cell(<>)),
-    <f: RangeFuncs> "(" <a1: Addr> ":" <a2: Addr> ")" => Box::new(Expr::RangeOp{op: f, start: a1, end: a2}),
-    <f: MonoFuncs> "(" <e: Expr> ")" => Box::new(Expr::MonoOp(f, e)),
+Atom: (Box<Expr>, Vec<ParentType>) = {
+    "int" => (Box::new(Expr::Integer(<>)), vec![]),
+    "-" <i: "int"> => (Box::new(Expr::Integer(-i)), vec![]),
+    <a: Addr> => (Box::new(Expr::Cell(a.clone())), vec![ParentType::Single(a)]),
+    <f: RangeFuncs> "(" <a1: Addr> ":" <a2: Addr> ")" => (Box::new(Expr::RangeOp{op: f, start: a1.clone(), end: a2.clone()}), vec![ParentType::Range(a1, a2)]),
+    <f: MonoFuncs> "(" <e_v: Expr> ")" => {let (e, v) = e_v; (Box::new(Expr::MonoOp(f, e)), v)},
     "(" <Expr> ")",
 };
 
@@ -98,13 +108,13 @@ MonoFuncs: MonoFunction = {
     "Sleep" => MonoFunction::Sleep,
 }
 
-DisplayCommand: DisplayCommand = {
-    "EnableOut" => DisplayCommand::EnableOut,
-    "DisableOut" => DisplayCommand::DisableOut,
-    "ScrollTo" <Addr> => DisplayCommand::ScrollTo(<>), // NOTE: This means that scroll_toA45 will also work (space is not enforced) ("scroll_to    AAA3" will(should?) also work)
-    "MoveUp" => DisplayCommand::MoveUp,
-    "MoveLeft" => DisplayCommand::MoveLeft,
-    "MovoDown" => DisplayCommand::MoveDown,
-    "MoveRight" => DisplayCommand::MoveRight,
+DisplayCommand: (DisplayCommand, Vec<ParentType>) = {
+    "EnableOut" => (DisplayCommand::EnableOut, vec![]),
+    "DisableOut" => (DisplayCommand::DisableOut, vec![]),
+    "ScrollTo" <a: Addr> => (DisplayCommand::ScrollTo(a.clone()), vec![ParentType::Single(a)]), // NOTE: This means that scroll_toA45 will also work (space is not enforced) ("scroll_to    AAA3" will(should?) also work, vec![]))
+    "MoveUp" => (DisplayCommand::MoveUp, vec![]),
+    "MoveLeft" => (DisplayCommand::MoveLeft, vec![]),
+    "MovoDown" => (DisplayCommand::MoveDown, vec![]),
+    "MoveRight" => (DisplayCommand::MoveRight, vec![]),
 } 
 

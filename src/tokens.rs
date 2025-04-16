@@ -45,11 +45,11 @@ fn parse_global_cell(s: &str) -> Option<(String, u32, u32)> {
 }
 
 #[derive(Logos, Debug, Clone, PartialEq)]
-#[logos(error = LexicalError)]  //removed skip r"[ \t\n\r\f]+"
+#[logos(skip r"[ \t\n\r\f]+", error = LexicalError)]  //removed skip r"[ \t\n\r\f]+"
 pub enum Token {
 
-    #[regex("[ \t]+")]
-    Ws,  //Ws stands for whitespace
+    // #[regex("[ \t]+")]
+    // Ws,  //Ws stands for whitespace
     #[regex("0|[1-9][0-9]*", |lex| lex.slice().parse())]
     Integer(i32),
     #[regex("[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_local_cell(lex.slice()))]

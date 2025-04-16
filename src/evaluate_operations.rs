@@ -602,7 +602,7 @@ fn calculate(cell:&mut Cell, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<(),Stri
         }
         None => 
         {
-            return Err(format!("No function associated to the cell at ({}, {})",cell.row, cell.col));
+            return Err(format!("No function associated to the cell at ({}, {})",cell.addr.row, cell.addr.col));
         }
     }  
 }
@@ -743,7 +743,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
     
 }
 
-fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &CellFunc) -> Result<(), String>   /////// OWNERSHIP NAHI LENI THI!!!!!!!!
+fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Option<CellFunc>) -> Result<(), String>   /////// OWNERSHIP NAHI LENI THI!!!!!!!!
 {
     let cell_rc = {
         let sheet_ref = &(*sheets)[cell.sheet as usize];
@@ -754,12 +754,15 @@ fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &CellFu
     };
     let curr_cell = cell_rc.borrow();
     
-    let old_dependencies = old_func.expression.get_dependency_list();       ////// ISKO THODA DEKH LENA
+    let old_dependencies =  match old_func {
+        Some(x) => x.expression.get_dependency_list(),
+        None => vec![]
+    };                                                                  ////// ISKO THODA DEKH LENA
     // let dependencies = curr_cell.cell_func.unwrap().clone().expression.get_dependency_list();       ////// ISKO THODA DEKH LENA
     let dependencies = match &curr_cell.cell_func {
         Some(func) => func.expression.get_dependency_list(),
         None => {
-            return Err(format!("Cell function missing for cell ({}, {})", cell.row, cell.col));
+            return Err(format!("Cell function missing for cell ({}, {})", curr_cell.addr.row, curr_cell.addr.col));
         }
     };
 
@@ -770,13 +773,13 @@ fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &CellFu
     let temp = update_children(sheets, cell);
     if let Err(strr) = temp 
     {
-        // kya sleep me negative hai to restore karni hai values?
-        if strr.contains("Cyclic dependency detected") || strr.contains("Negative sleep time") 
+        // kya sleep me negative hai to restore karni hai values? //Yes
+        if strr.contains("Cyclic dependency detected") || strr.contains("Negative sleep time") //NOTE: Isko theek karna hai
         {
             // we need to restore the values 
-            let func = curr_cell.cell_func.clone().unwrap();
+            let func = curr_cell.cell_func.clone();
             let mut curr_cell = cell_rc.borrow_mut();
-            curr_cell.cell_func = Some(old_func.clone());
+            curr_cell.cell_func = old_func.clone();
             evaluate(sheets,cell, &func);
         }
         return Err(strr);

@@ -1,10 +1,10 @@
 ///////////////// ONLY COMPLETED TOKENS FOR NUMERAL CELL FUNCS; STRING CELL FUNCS NOT DONE
 ///////////////// HAVE TO MAKE LEXER BY OWN 😢  FOR COMPLEX FUNCTIONS AS PROPOSED       // ban gaya yay
 use crate::ast::{Expr, Addr};
-use std::cell::RefCell;
+use std::cell::{RefCell};
 use std::collections::BTreeSet;
 use std::ops::{Index, IndexMut};
-#[allow(unused_imports)]
+// #[allow(unused_imports)]
 use std::rc::{Rc, Weak};
 
 
@@ -35,7 +35,7 @@ pub struct CellFunc
     // pub dependency_list: Vec<Weak<RefCell<Cell>>>,
     pub expression: Expr,
     pub destination: Weak<RefCell<Cell>>, // USE OF Weak<T> is DOUBTFUL // @viraaz11: kyu chahiye      // @Pianissimo3115: HATA SKTE AS WELL
-    pub value: ValueType,           // HATA SKTE
+    // pub value: ValueType,           // HATA SKTE  //Hata diya
 }
 
 impl std::fmt::Display for CellFunc 
@@ -53,7 +53,7 @@ impl std::fmt::Debug for CellFunc
         writeln!(f, "CellFunc {{")?;
 
         writeln!(f, "\texpression: {:?},", self.expression)?;
-        writeln!(f, "\tvalue: {:?},", self.value)?;
+        // writeln!(f, "\tvalue: {:?},", self.value)?;
 
         write!(f, "\tdestination: ")?;
         if let Some(dest_rc) = self.destination.upgrade() 
@@ -77,7 +77,7 @@ impl CellFunc
         {
             expression,
             destination,
-            value: ValueType::IntegerValue(0), // Default value; will be updated later
+            // value: ValueType::IntegerValue(0), // Default value; will be updated later //NOTE: Removed cause upar likha tha ki nahi chahiye
         }
     }
 }
@@ -115,7 +115,7 @@ pub struct Column
     col_number: u32
 }
 
-impl IndexMut<usize> for Column
+impl IndexMut<usize> for Column //NOTE IMPORTANT: Make sure no mutable reference is used whn, for example, printing the contents as it will crete unnencesary cells. Use this carefully.
 {
 
     fn index_mut(&mut self, ind: usize) -> &mut Rc<RefCell<Cell>> { //NOTE: Rc ko as mut bhejna hota hai kya
@@ -146,8 +146,16 @@ impl Column
     fn truncate(&mut self, new_len: usize) {
         self.cells.truncate(new_len);
     }
+
     fn len(&self) -> usize {  
         self.cells.len()
+    }
+
+    fn val_at(&self, row: usize) -> ValueType { //NOTE: usize?
+        if row >= self.cells.len() {
+            return ValueType::IntegerValue(0);
+        }
+        return self.cells[row].borrow().value.clone() //NOTE: Doing clone here cause bohot koshish ke baad mujhse references nahi bheja gaya. Chota struct hai to farak nahi padna chahiye.
     }
 }
 
@@ -163,7 +171,7 @@ pub struct Sheet
 }
 impl Sheet
 {
-    pub fn new(sheet_idx: u32, sheet_name: String, col: u32) -> Self 
+    pub fn new(sheet_idx: u32, sheet_name: String, cols: u32, rows: u32) -> Self 
     {
         let mut s = Sheet 
         {
@@ -173,7 +181,7 @@ impl Sheet
             sheet_idx,
             sheet_name
         };
-        s.resize(0, col as usize);  //NOTE: Ye u32 and usize wali cheez sort kar lena please
+        s.resize(rows as usize, cols as usize);  //NOTE: Ye u32 and usize wali cheez sort kar lena please
         s
     }
     pub fn resize(&mut self, row_num: usize, col_num: usize)   
@@ -194,18 +202,11 @@ impl Sheet
             }
         }
         self.rows = row_num as u32;
-        // if self.data.len() < row_num as usize
-        // {
-        //     for _ in self.data.len()..row_num as usize 
-        //     {
-        //         let temp: Vec<Rc<RefCell<Cell>>> = vec![];
-        //         self.data.push(RefCell::new(temp));
-        //     }
-        //     if col_num < self.columns 
-        //     {
-        //         // to do by arjun 
-        //     }
-        // } 
-
     }
+
+    
+    pub fn val_at(&self, col: usize, row: usize) -> ValueType {  
+        self.data[col].borrow().val_at(row)
+    }
+
 }
