@@ -62,7 +62,7 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet)
             curr_col -= 1;
             curr_col /= 26;
         }
-        print!("{:>6}", curr);
+        print!("{:>6}", curr.chars().rev().collect::<String>());
     }
     println!();
     for i in row..row_max {
@@ -83,16 +83,16 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet)
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
 
-    // let r: u32 = std::env::args().nth(1)
-    //     .expect("Row number not entered (First arg missing)")
-    //     .parse().expect("Invalid input for Row number (First arg)");
+    let r: u32 = std::env::args().nth(1)
+        .expect("Row number not entered (First arg missing)")
+        .parse().expect("Invalid input for Row number (First arg)");
     
-    // let c: u32 = std::env::args().nth(2)
-    //     .expect("Column number not entered (Second arg missing)")
-    //     .parse().expect("Invalid input for Column number (Second arg)");
+    let c: u32 = std::env::args().nth(2)
+        .expect("Column number not entered (Second arg missing)")
+        .parse().expect("Invalid input for Column number (Second arg)");
 
-    let r: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
-    let c: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+    // let r: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+    // let c: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
 //sheets: &Vec<Rc<RefCell<Sheet>>>
 
     let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
@@ -152,8 +152,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         curr_row = cmp::max(0, cmp::min(addr.row as i64, curr_sheet.rows as i64 - 10)) as usize; 
                     },
 
-                    ast::DisplayCommand::MoveUp => curr_row = cmp::max(0, cmp::min(curr_row as i64 +1 , curr_sheet.rows as i64 - 10)) as usize,
-                    ast::DisplayCommand::MoveDown => curr_row = cmp::max(0, cmp::min(curr_row as i64 -1 , curr_sheet.rows as i64 - 10)) as usize,
+                    ast::DisplayCommand::MoveUp => curr_row = cmp::max(0, cmp::min(curr_row as i64 -1 , curr_sheet.rows as i64 - 10)) as usize,
+                    ast::DisplayCommand::MoveDown => curr_row = cmp::max(0, cmp::min(curr_row as i64 +1 , curr_sheet.rows as i64 - 10)) as usize,
                     ast::DisplayCommand::MoveRight => curr_col = cmp::max(0, cmp::min(curr_col as i64 +1 , curr_sheet.columns as i64 - 10)) as usize,
                     ast::DisplayCommand::MoveLeft => curr_col = cmp::max(0, cmp::min(curr_col as i64 -1 , curr_sheet.columns as i64 - 10)) as usize,
                 }},

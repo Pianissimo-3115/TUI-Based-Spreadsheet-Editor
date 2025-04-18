@@ -22,7 +22,7 @@ fn parse_local_cell(s: &str) -> Option<(u32, u32)> {
     let row = digits.parse::<u32>().ok()? - 1;
     let mut col: u32 = 0;
     for c in letters.chars() {
-        col = col*27 + (c as u8 - b'A' + 1) as u32; 
+        col = col*26 + (c as u8 - b'A' + 1) as u32; 
     }
     col -=1; //Zero based indexing
     Some((col, row))
