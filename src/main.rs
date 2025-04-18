@@ -57,14 +57,14 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet)
         while curr_col > 0
         {
 
-            curr.push((('A' as u8) + ((curr_col-1) % 26) as u8) as char);
+            curr.push(((b'A') + ((curr_col-1) % 26) as u8) as char);
             
             curr_col -= 1;
             curr_col /= 26;
         }
         print!("{:>6}", curr);
     }
-    print!("\n");
+    println!();
     for i in row..row_max {
         print!("{i:>6}");
         for j in col..col_max {
@@ -76,7 +76,7 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet)
             }
             
         }
-        print!("\n")
+        println!()
     }
 }
 
@@ -129,8 +129,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         let (ast, dep_vec) = match parser.parse(0, lexer) {  //NOTE: Error messages are temporary.
             Ok(x) => x,
             Err(ParseError::User{error: LexicalError::InvalidToken}) => {last_err_msg = String::from("Invalid Token"); continue},
-            Err(ParseError::User{error: LexicalError::InvalidInteger(x)}) => {last_err_msg = String::from(format!("Invalid Integer {:?}", x)); continue}, 
-            Err(e) => {last_err_msg = String::from(format!("This error: {:?}", e)); continue}
+            Err(ParseError::User{error: LexicalError::InvalidInteger(x)}) => {last_err_msg = format!("Invalid Integer {:?}", x); continue}, 
+            Err(e) => {last_err_msg = format!("This error: {:?}", e); continue}
         };
         println!("{:?}", dep_vec);
         println!("{:?}", ast);
@@ -182,6 +182,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
+                            
                         },
                         ast::ParentType::Range(a_1, a_2) => {
                             if a_1.row >= curr_sheet.rows {
@@ -204,15 +205,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     }
                 }
 
-                let target_cell_rc = Rc::clone(&mut (curr_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
+                let target_cell_rc = Rc::clone(& (curr_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
                 let mut target_cell_ref = target_cell_rc.borrow_mut();
-                old_func = (&target_cell_ref).cell_func.clone();
-                (&mut target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex, destination: Rc::downgrade(&target_cell_rc)});
+                old_func = (target_cell_ref).cell_func.clone();
+                (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});
+                drop(target_cell_ref);
             }
 
                 if let Err(strr) = evaluate(&mut sheets, &a, &old_func)
                 {
-                    last_err_msg = String::from(strr);
+                    last_err_msg = strr;
                     continue 'mainloop;
                     
                 }              

@@ -1,11 +1,11 @@
 ///////////////// ONLY COMPLETED TOKENS FOR NUMERAL CELL FUNCS; STRING CELL FUNCS NOT DONE
 ///////////////// HAVE TO MAKE LEXER BY OWN 😢  FOR COMPLEX FUNCTIONS AS PROPOSED       // ban gaya yay
 use crate::ast::{Expr, Addr};
-use std::cell::{RefCell};
+use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::ops::{Index, IndexMut};
 // #[allow(unused_imports)]
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 
 
@@ -34,7 +34,7 @@ pub struct CellFunc
 {
     // pub dependency_list: Vec<Weak<RefCell<Cell>>>,
     pub expression: Expr,
-    pub destination: Weak<RefCell<Cell>>, // USE OF Weak<T> is DOUBTFUL // @viraaz11: kyu chahiye      // @Pianissimo3115: HATA SKTE AS WELL
+    // pub destination: Weak<RefCell<Cell>>, // USE OF Weak<T> is DOUBTFUL // @viraaz11: kyu chahiye      // @Pianissimo3115: HATA SKTE AS WELL
     // pub value: ValueType,           // HATA SKTE  //Hata diya
 }
 
@@ -55,28 +55,28 @@ impl std::fmt::Debug for CellFunc
         writeln!(f, "\texpression: {:?},", self.expression)?;
         // writeln!(f, "\tvalue: {:?},", self.value)?;
 
-        write!(f, "\tdestination: ")?;
-        if let Some(dest_rc) = self.destination.upgrade() 
-        {
-            let dest = dest_rc.borrow();
-            writeln!(f, "Cell({}, {})", dest.addr.row, dest.addr.col)?;
-        } 
-        else 
-        {
-            writeln!(f, "None (dropped)")?;
-        }
+        // write!(f, "\tdestination: ")?;
+        // if let Some(dest_rc) = self.destination.upgrade() 
+        // {
+        //     let dest = dest_rc.borrow();
+        //     writeln!(f, "Cell({}, {})", dest.addr.row, dest.addr.col)?;
+        // } 
+        // else 
+        // {
+        //     writeln!(f, "None (dropped)")?;
+        // }
 
         writeln!(f, "}}")
     }
 }
 impl CellFunc
 {
-    pub fn new(expression: Expr, destination: Weak<RefCell<Cell>>) -> Self 
+    pub fn new(expression: Expr) -> Self 
     {
         CellFunc 
         {
             expression,
-            destination,
+            // destination,
             // value: ValueType::IntegerValue(0), // Default value; will be updated later //NOTE: Removed cause upar likha tha ki nahi chahiye
         }
     }
@@ -124,7 +124,7 @@ impl IndexMut<usize> for Column //NOTE IMPORTANT: Make sure no mutable reference
             let mut p = self.cells.len() as u32;
             self.cells.resize_with(ind+1, || {p += 1; Rc::new(RefCell::new(Cell::new(Addr{sheet: self.sheet_number, row: p, col: self.col_number})))});
         }
-        return &mut self.cells[ind]   //NOTE: Ye mut, & mut waherah dekh lena theek se koi please. (┬┬﹏┬┬)
+        &mut self.cells[ind]   //NOTE: Ye mut, & mut waherah dekh lena theek se koi please. (┬┬﹏┬┬)
     }   
 }
 
@@ -191,7 +191,7 @@ impl Sheet
     pub fn resize(&mut self, row_num: usize, col_num: usize)   
     {
         {
-            let mut p = self.columns as u32;  //Assuming self.columns == self.data.len() //NOTE: Hope to god that this does not cause issues??
+            let mut p = self.columns;  //Assuming self.columns == self.data.len() //NOTE: Hope to god that this does not cause issues??
             self.data.resize_with(col_num, || { p += 1; RefCell::new(Column::new(p-1, self.sheet_idx))}); //NOTE!!! : Defaulting sheet number to 0 for now. Must be changed.
         }
         self.columns = col_num as u32;  //NOTE: self.rows and (neeche,) self.columns u32 hai to unko "as usize" use karna pada. Har jaga otherwise usize lagega. If possible, sheet struct mai usize kar dena inko.

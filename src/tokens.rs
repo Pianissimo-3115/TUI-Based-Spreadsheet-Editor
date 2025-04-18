@@ -24,7 +24,7 @@ fn parse_local_cell(s: &str) -> Option<(u32, u32)> {
     for c in letters.chars() {
         col = col*27 + (c as u8 - b'A' + 1) as u32; 
     }
-    col = col - 1; //Zero based indexing
+    col -=1; //Zero based indexing
     Some((col, row))
 }
 
@@ -40,7 +40,7 @@ fn parse_global_cell(s: &str) -> Option<(String, u32, u32)> {
     for c in letters.chars() {
         col = col*27 + (c as u8 - b'A' + 1) as u32; 
     }
-    col = col - 1; //Zero based indexing
+    col -=1; //Zero based indexing
     Some((sheet.to_string(), col, row))
 }
 

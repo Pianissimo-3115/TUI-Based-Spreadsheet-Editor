@@ -11,7 +11,7 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
 // use crate::cell_operations::CellFunc;
-fn min_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn min_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -26,18 +26,18 @@ fn min_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result
             let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
-            if temp.valid == false 
+            if !temp.valid 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = (&temp).value 
+            else if let ValueType::IntegerValue(value) = temp.value 
             {
                 if (value as f64) < mini 
                 {
                     mini = value as f64;
                 }
             }
-            else if let ValueType::FloatValue(value) = (&temp).value 
+            else if let ValueType::FloatValue(value) = temp.value 
             {
                 isfloat = true;
                 if value < mini 
@@ -51,17 +51,17 @@ fn min_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result
             }            
         }
     }
-    if isfloat == true 
+    if isfloat
     {
-        return Ok(ValueType::FloatValue(mini));
+        Ok(ValueType::FloatValue(mini))
     }
     else 
     {
-        return Ok(ValueType::IntegerValue(mini as i32));
+        Ok(ValueType::IntegerValue(mini as i32))
     }
 }
 
-fn max_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn max_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -76,18 +76,18 @@ fn max_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result
             let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
-            if temp.valid == false 
+            if !temp.valid 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = (&temp).value 
+            else if let ValueType::IntegerValue(value) = temp.value 
             {
                 if (value as f64) > maxi 
                 {
                     maxi = value as f64;
                 }
             }
-            else if let ValueType::FloatValue(value) = (&temp).value 
+            else if let ValueType::FloatValue(value) = temp.value 
             {
                 isfloat = true;
                 if value > maxi 
@@ -101,17 +101,17 @@ fn max_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result
             }            
         }
     }
-    if isfloat == true 
+    if isfloat 
     {
-        return Ok(ValueType::FloatValue(maxi));
+        Ok(ValueType::FloatValue(maxi))
     }
     else 
     {
-        return Ok(ValueType::IntegerValue(maxi as i32));
+        Ok(ValueType::IntegerValue(maxi as i32))
     }
 }
 
-fn sum_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn sum_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -126,15 +126,15 @@ fn sum_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result
             let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
-            if temp.valid == false 
+            if !temp.valid
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = (&temp).value 
+            else if let ValueType::IntegerValue(value) = temp.value 
             {
                 summ += value as f64;
             }
-            else if let ValueType::FloatValue(value) = (&temp).value 
+            else if let ValueType::FloatValue(value) = temp.value 
             {
                 isfloat = true;
                 summ+= value;
@@ -145,17 +145,17 @@ fn sum_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result
             }        
         }
     }
-    if isfloat == true 
+    if isfloat 
     {
-        return Ok(ValueType::FloatValue(summ));
+        Ok(ValueType::FloatValue(summ))
     }
     else 
     {
-        return Ok(ValueType::IntegerValue(summ as i32));
+        Ok(ValueType::IntegerValue(summ as i32))
     }
 }
 
-fn avg_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn avg_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -170,16 +170,16 @@ fn avg_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result
             let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
-            if temp.valid == false 
+            if !temp.valid
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = (&temp).value 
+            else if let ValueType::IntegerValue(value) = temp.value 
             {
                 summ += value as f64;
                 count += 1;
             }
-            else if let ValueType::FloatValue(value) = (&temp).value 
+            else if let ValueType::FloatValue(value) = temp.value 
             {
                 summ += value;
                 count += 1; 
@@ -200,7 +200,7 @@ fn avg_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result
     }
 }
 
-fn stdev_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
 {
     let cell1: (u32, u32) = range.0;
     let cell2: (u32, u32) = range.1;
@@ -214,16 +214,16 @@ fn stdev_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Resu
             let temp1 = data[col as usize].borrow();
             let temp2 = Rc::clone(&temp1[row as usize]);
             let temp = temp2.borrow();
-            if temp.valid == false 
+            if !temp.valid 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = (&temp).value 
+            else if let ValueType::IntegerValue(value) = temp.value 
             {
                 summ += value as f64;
                 count += 1;
             }
-            else if let ValueType::FloatValue(value) = (&temp).value 
+            else if let ValueType::FloatValue(value) = temp.value 
             {
                 summ += value;
                 count += 1; 
@@ -247,15 +247,15 @@ fn stdev_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Resu
             let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
             let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
             let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
-            if temp.valid == false 
+            if !temp.valid
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = (&temp).value 
+            else if let ValueType::IntegerValue(value) = temp.value 
             {
                 sum_squared_diff += (value as f64 - mean).powi(2);
             }
-            else if let ValueType::FloatValue(value) = (&temp).value 
+            else if let ValueType::FloatValue(value) = temp.value 
             {
                 sum_squared_diff += (value - mean).powi(2);
             }
@@ -270,7 +270,7 @@ fn stdev_eval(data: &Vec<RefCell<Column>>, range: ((u32,u32),(u32,u32))) -> Resu
     Ok(ValueType::FloatValue(stdev))
 }
 
-fn sleep(seconds: f64) -> ()
+fn sleep(seconds: f64)
 {
     thread::sleep(Duration::from_secs_f64(seconds));
 }
@@ -301,9 +301,9 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dep
                 let sheet = sheet_ref.borrow();
 
                 let column_ref = &sheet.data[col as usize];
-                let mut column = column_ref.borrow_mut();
+                let column = column_ref.borrow_mut();
 
-                let cell_rc = Rc::clone(&mut column[row as usize]);
+                let cell_rc = Rc::clone(&column[row as usize]);
                 drop(column);
                 let mut parent_cell = cell_rc.borrow_mut();
                 // let temp1 = (*sheets)[sheet_num as usize].borrow();
@@ -312,7 +312,8 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dep
                 // let parent_cell = Rc::clone(&temp2[row as usize]);
                 // let mut parent_cell = parent_cell.borrow_mut();
 
-                parent_cell.children.remove(&(cell));
+                parent_cell.children.remove(cell);
+                drop(parent_cell);  // is this needed? // Yes, to release the borrow before the next iteration
             },
             ParentType::Range(start, end) => 
             {
@@ -330,12 +331,13 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dep
                         let sheet = sheet_ref.borrow();
 
                         let column_ref = &sheet.data[i as usize];
-                        let mut column = column_ref.borrow_mut();
+                        let column = column_ref.borrow_mut();
 
-                        let cell_rc = Rc::clone(&mut column[j as usize]);
+                        let cell_rc = Rc::clone(& column[j as usize]);
                         drop(column);
                         let mut parent_cell = cell_rc.borrow_mut();
-                        parent_cell.children.remove(&(cell));
+                        parent_cell.children.remove(cell);
+                        drop(parent_cell);  // is this needed? // Yes, to release the borrow before the next iteration
                     }
                 }
             },
@@ -360,8 +362,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
             let sheet_ref =&(*sheets)[sheet_num as usize];
             let sheet = sheet_ref.borrow();
             let column_ref = &sheet.data[col as usize];
-            let mut column = column_ref.borrow_mut();
-            let cell_rc = Rc::clone(&mut column[row as usize]);
+            let column = column_ref.borrow_mut();
+            let cell_rc = Rc::clone(&column[row as usize]);
             drop(column);
             let parent_cell = cell_rc.borrow();
             Ok(parent_cell.value.clone())
@@ -591,23 +593,28 @@ fn calculate(cell_rc:Rc<RefCell<Cell>>, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Res
         Some(func) =>
         {   
             let expr = &func.expression;
-            let temp = eval(expr, &sheets);
+            let temp = eval(expr, sheets);
             if let Err(err) = temp 
             {
                 cell.valid = false;
+                drop(cell);
                 return Err(err);
             }
             else {
                 let temp = temp.unwrap();
                 cell.value = temp;
                 cell.valid = true;
+                drop(cell);
             }
             // cell.value = temp;
-            return Ok(());
+            Ok(())
         }
         None => 
         {
-            return Err(format!("No function associated to the cell at ({}, {})",cell.addr.row, cell.addr.col));
+            let r1= cell.addr.row;
+            let c1= cell.addr.col;
+            drop(cell);
+            Err(format!("No function associated to the cell at ({}, {})",r1, c1))
         }
     }  
 }
@@ -629,12 +636,13 @@ fn update_parent_avls(cell:&Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependen
                 let sheet = sheet_ref.borrow();
 
                 let column_ref = &sheet.data[addr.col as usize];
-                let mut column = column_ref.borrow_mut();
+                let column = column_ref.borrow_mut();
 
-                let cell_rc = Rc::clone(&mut column[addr.row as usize]);
+                let cell_rc = Rc::clone(&column[addr.row as usize]);
                 drop(column);
                 let mut parent_cell = cell_rc.borrow_mut();
                 parent_cell.children.insert((cell).clone());
+                drop(parent_cell); 
             },
             ParentType::Range(start, end) => 
             {
@@ -652,12 +660,13 @@ fn update_parent_avls(cell:&Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependen
                         let sheet = sheet_ref.borrow();
 
                         let column_ref = &sheet.data[i as usize];
-                        let mut column = column_ref.borrow_mut();
+                        let column = column_ref.borrow_mut();
 
-                        let cell_rc = Rc::clone(&mut column[j as usize]);
+                        let cell_rc = Rc::clone(&column[j as usize]);
                         drop(column);
                         let mut parent_cell = cell_rc.borrow_mut();
                         parent_cell.children.insert((cell).clone());
+                        drop(parent_cell);
                     }
                 }
             },
@@ -676,9 +685,9 @@ fn dfs(sheets: &Vec<Rc<RefCell<Sheet>>>,current_cell: &Addr, visited: &mut HashM
     let sheet = sheet_ref.borrow();
 
     let column_ref = &sheet.data[current_cell.col as usize];
-    let mut column = column_ref.borrow_mut();
+    let column = column_ref.borrow_mut();
 
-    let cell_rc = Rc::clone(&mut column[current_cell.row as usize]);
+    let cell_rc = Rc::clone(&column[current_cell.row as usize]);
     drop(column);
     let curr_cell = cell_rc.borrow();
 
@@ -709,11 +718,7 @@ fn topological_sort(sheets: &Vec<Rc<RefCell<Sheet>>>, addr:&Addr) -> Result<Vec<
     let mut visited: HashMap<Addr, bool> = HashMap::new();
     let mut rec_stack: HashMap<Addr, bool> = HashMap::new();
     let mut stack: Vec<Addr> = Vec::new();
-    let temp = dfs(sheets, addr, &mut visited, &mut rec_stack, &mut stack);
-    if let Err(strr) = temp 
-    {
-        return Err(strr);
-    }
+    dfs(sheets, addr, &mut visited, &mut rec_stack, &mut stack)?;
     Ok(stack)
 }
 
@@ -728,12 +733,12 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
         let sheet = sheet_ref.borrow();
 
         let column_ref = &sheet.data[i.col as usize];
-        let mut column = column_ref.borrow_mut();
+        let column = column_ref.borrow_mut();
 
-        let cell_rc = Rc::clone(&mut column[i.row as usize]);
+        let cell_rc = Rc::clone(& column[i.row as usize]);
         drop(column);
         let curr_cell = cell_rc.borrow();
-        let checker = curr_cell.cell_func.is_some().clone();
+        let checker = curr_cell.cell_func.is_some();
         drop(curr_cell);
         // match curr_cell.cell_func
         // {
@@ -745,7 +750,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
         // }
         if checker
         {
-            calculate(cell_rc, &sheets)?;
+            calculate(cell_rc, sheets)?;
         }
     }
 
@@ -759,8 +764,8 @@ pub fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Op
         let sheet_ref = &(*sheets)[cell.sheet as usize];
         let sheet = sheet_ref.borrow();
         let column_ref = &sheet.data[cell.col as usize];
-        let mut column = column_ref.borrow_mut();
-        Rc::clone(&mut column[cell.row as usize])
+        let column = column_ref.borrow_mut();
+        Rc::clone(&column[cell.row as usize])
         // drop(column);
     };
     let curr_cell = cell_rc.borrow();
