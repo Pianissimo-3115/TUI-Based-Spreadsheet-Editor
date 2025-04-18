@@ -764,8 +764,8 @@ pub fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Op
         // drop(column);
     };
     let curr_cell = cell_rc.borrow();
-    let roww = curr_cell.addr.row.clone();
-    let coll = curr_cell.addr.col.clone();
+    // let roww = curr_cell.addr.row.clone();
+    // let coll = curr_cell.addr.col.clone();
     let cell_funcc = curr_cell.cell_func.clone();
     let old_dependencies =  match old_func {
         Some(x) => x.expression.get_dependency_list(),
@@ -775,7 +775,7 @@ pub fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Op
     let dependencies = match &cell_funcc {
         Some(func) => func.expression.get_dependency_list(),
         None => {
-            return Err(format!("Cell function missing for cell ({}, {})", roww, coll));
+            vec![]
         }
     };
 

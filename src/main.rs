@@ -91,8 +91,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     //     .expect("Column number not entered (Second arg missing)")
     //     .parse().expect("Invalid input for Column number (Second arg)");
 
-    let r: u32 = 10; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
-    let c: u32 = 10; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+    let r: u32 = 50; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+    let c: u32 = 50; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
 //sheets: &Vec<Rc<RefCell<Sheet>>>
 
     let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
@@ -210,7 +210,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 (&mut target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex, destination: Rc::downgrade(&target_cell_rc)});
             }
 
-                evaluate(&mut sheets, &a, &old_func)?;                
+                if let Err(strr) = evaluate(&mut sheets, &a, &old_func)
+                {
+                    last_err_msg = String::from(strr);
+                    continue 'mainloop;
+                    
+                }              
             }
 
         }
