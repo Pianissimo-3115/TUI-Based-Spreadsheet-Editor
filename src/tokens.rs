@@ -19,7 +19,7 @@ fn parse_local_cell(s: &str) -> Option<(u32, u32)> {
     let (letters, digits) = s.chars()
         .partition::<String, _>(|c| c.is_ascii_alphabetic());
 
-    let row = digits.parse::<u32>().ok()?;
+    let row = digits.parse::<u32>().ok()? - 1;
     let mut col: u32 = 0;
     for c in letters.chars() {
         col = col*27 + (c as u8 - b'A' + 1) as u32; 
@@ -35,7 +35,7 @@ fn parse_global_cell(s: &str) -> Option<(String, u32, u32)> {
     let (letters, digits) = addr.chars()
         .partition::<String, _>(|c| c.is_ascii_alphabetic());
 
-    let row = digits.parse::<u32>().ok()?;
+    let row = digits.parse::<u32>().ok()? - 1;
     let mut col: u32 = 0;
     for c in letters.chars() {
         col = col*27 + (c as u8 - b'A' + 1) as u32; 

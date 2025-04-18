@@ -5,7 +5,7 @@ pub mod evaluate_operations;
 use lalrpop_util::lalrpop_mod;
 use lalrpop_util::ParseError;
 use logos::Logos;
-use crate::cell_operations::{ CellFunc, Sheet, ValueType};
+use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
 use crate::evaluate_operations::evaluate;
 use crate::tokens::LexicalError;
 use std::io::{self, Write};
@@ -170,6 +170,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
                     continue 'mainloop;
                 }
+                let mut col = curr_sheet.data[a.col as usize].borrow_mut();
+                if col.cells.len() <= a.row as usize
+                {
+                    let mut p = col.cells.len() as u32;
+                    col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: a.col})))});
+                }
+                drop(col);
 
                 for dep in &dep_vec {
                     match dep {
@@ -182,7 +189,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
-                            
+                            let mut col = curr_sheet.data[a_1.col as usize].borrow_mut();
+                            if col.cells.len() <= a_1.row  as usize
+                            {
+                                let mut p = col.cells.len() as u32;
+                                col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: a_1.col})))});
+                            }
+                            drop(col);
                         },
                         ast::ParentType::Range(a_1, a_2) => {
                             if a_1.row >= curr_sheet.rows {
@@ -200,6 +213,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             if a_2.col >= curr_sheet.columns {
                                 last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
+                            }
+                            if a_1.col > a_2.col {
+                                last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
+                                continue 'mainloop;
+                            }
+                            if a_1.row > a_2.row {
+                                last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
+                                continue 'mainloop;
+                            }
+                            for i in a_1.col..=a_2.col {
+                                let mut col = curr_sheet.data[i as usize].borrow_mut();
+                                if col.cells.len() <= a_2.row as usize
+                                {
+                                    let mut p = col.cells.len() as u32;
+                                    col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: i})))});
+                                }
+                                drop(col);
                             }
                         },
                     }

@@ -110,23 +110,23 @@ impl Cell
 #[derive(Debug, Clone)]
 pub struct Column
 {
-    cells: Vec<Rc<RefCell<Cell>>>,
-    sheet_number: u32,
-    col_number: u32
+    pub cells: Vec<Rc<RefCell<Cell>>>,
+    pub sheet_number: u32,
+    pub col_number: u32
 }
 
-impl IndexMut<usize> for Column //NOTE IMPORTANT: Make sure no mutable reference is used whn, for example, printing the contents as it will crete unnencesary cells. Use this carefully.
-{
+// impl IndexMut<usize> for Column //NOTE IMPORTANT: Make sure no mutable reference is used whn, for example, printing the contents as it will crete unnencesary cells. Use this carefully.
+// {
 
-    fn index_mut(&mut self, ind: usize) -> &mut Rc<RefCell<Cell>> { //NOTE: Rc ko as mut bhejna hota hai kya
-        if self.cells.len() <= ind
-        {
-            let mut p = self.cells.len() as u32;
-            self.cells.resize_with(ind+1, || {p += 1; Rc::new(RefCell::new(Cell::new(Addr{sheet: self.sheet_number, row: p, col: self.col_number})))});
-        }
-        &mut self.cells[ind]   //NOTE: Ye mut, & mut waherah dekh lena theek se koi please. (┬┬﹏┬┬)
-    }   
-}
+//     fn index_mut(&mut self, ind: usize) -> &mut Rc<RefCell<Cell>> { //NOTE: Rc ko as mut bhejna hota hai kya
+//         if self.cells.len() <= ind
+//         {
+//             let mut p = self.cells.len() as u32;
+//             self.cells.resize_with(ind+1, || {p += 1; Rc::new(RefCell::new(Cell::new(Addr{sheet: self.sheet_number, row: p, col: self.col_number})))});
+//         }
+//         &mut self.cells[ind]   //NOTE: Ye mut, & mut waherah dekh lena theek se koi please. (┬┬﹏┬┬)
+//     }   
+// }
 
 impl Index<usize> for Column   //NOTE: This is not needed for my part, I guessed this would be needed in other part so left this here. 
 {
