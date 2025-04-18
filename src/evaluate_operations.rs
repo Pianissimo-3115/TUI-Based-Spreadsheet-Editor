@@ -696,7 +696,7 @@ fn dfs(sheets: &Vec<Rc<RefCell<Sheet>>>,current_cell: &Addr, visited: &mut HashM
     {
         if rec_stack.contains_key(i) 
         {
-            return Err(format!("Cyclic dependency detected at cell ({}, {})", i.row, i.col));
+            return Err(format!("Cyclic dependency detected at cell ({}, {})", i.row+1, i.col+1));
         }
         else if visited.contains_key(i) 
         {
@@ -760,6 +760,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
 
 pub fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Option<CellFunc>) -> Result<(), String>   /////// OWNERSHIP NAHI LENI THI!!!!!!!!
 {
+    // println!("{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
     let cell_rc = {
         let sheet_ref = &(*sheets)[cell.sheet as usize];
         let sheet = sheet_ref.borrow();
@@ -768,26 +769,33 @@ pub fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Op
         Rc::clone(&column[cell.row as usize])
         // drop(column);
     };
+    // println!("{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
     let curr_cell = cell_rc.borrow();
     // let roww = curr_cell.addr.row.clone();
     // let coll = curr_cell.addr.col.clone();
+    // println!("2{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
     let cell_funcc = curr_cell.cell_func.clone();
+    drop(curr_cell);
+    // println!("1{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
+
     let old_dependencies =  match old_func {
         Some(x) => x.expression.get_dependency_list(),
         None => vec![]
     };                                                                  ////// ISKO THODA DEKH LENA
     // let dependencies = curr_cell.cell_func.unwrap().clone().expression.get_dependency_list();       ////// ISKO THODA DEKH LENA
+    // println!("{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
     let dependencies = match &cell_funcc {
         Some(func) => func.expression.get_dependency_list(),
         None => {
             vec![]
         }
     };
-
+    // println!("{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
+    
     remove_old_dependencies(cell, sheets, old_dependencies)?;
+    // println!("{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
 
     update_parent_avls(cell, sheets, dependencies)?;
-    drop(curr_cell);
     let temp = update_children(sheets, cell);
     if let Err(strr) = temp 
     {

@@ -66,7 +66,7 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet)
     }
     println!();
     for i in row..row_max {
-        print!("{i:>6}");
+        print!("{:>6}", i+1);
         for j in col..col_max {
             let val =  sheet.val_at(j as usize, i as usize);
             match val {
@@ -91,8 +91,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     //     .expect("Column number not entered (Second arg missing)")
     //     .parse().expect("Invalid input for Column number (Second arg)");
 
-    let r: u32 = 50; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
-    let c: u32 = 50; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+    let r: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+    let c: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
 //sheets: &Vec<Rc<RefCell<Sheet>>>
 
     let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
@@ -132,8 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             Err(ParseError::User{error: LexicalError::InvalidInteger(x)}) => {last_err_msg = format!("Invalid Integer {:?}", x); continue}, 
             Err(e) => {last_err_msg = format!("This error: {:?}", e); continue}
         };
-        println!("{:?}", dep_vec);
-        println!("{:?}", ast);
+        // println!("{:?}", dep_vec);
+        // println!("{:?}", ast);
 
 
         match ast {
@@ -239,9 +239,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 let mut target_cell_ref = target_cell_rc.borrow_mut();
                 old_func = (target_cell_ref).cell_func.clone();
                 (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});
+                // println!("{}", target_cell_rc.try_borrow_mut().is_ok());
                 drop(target_cell_ref);
-            }
 
+            }
+                // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
                 if let Err(strr) = evaluate(&mut sheets, &a, &old_func)
                 {
                     last_err_msg = strr;
