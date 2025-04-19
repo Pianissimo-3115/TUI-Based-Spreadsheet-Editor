@@ -45,8 +45,10 @@ pub enum Expr {
     Float(f64),
     Cell(Addr),
     MonoOp(MonoFunction, Box<Expr>),
-    RangeOp{op: RangeFunction, start: Addr, end: Addr}, //Note: Should addr be under Box<>?
-    BinOp(Box<Expr>, BinaryFunction, Box<Expr>),
+    RangeOp{op: RangeFunction, start: Addr, end: Addr, cond: Box<Expr>}, //Note: Should addr be under Box<>?
+    InfixOp(Box<Expr>, InfixFunction, Box<Expr>),
+    BinOp(BinaryFunction, Box<Expr>, Box<Expr>),
+    TernaryOp(TernaryFunction, Box<Expr>, Box<Expr>, Box<Expr>)
 }
 pub enum ParentType {
     Single(Addr),
@@ -77,7 +79,7 @@ impl Expr
             Expr::Cell(addr) => vec![ParentType::Single(addr.clone())],
             Expr::MonoOp(_, expr) => expr.get_dependency_list(),
             Expr::RangeOp{start, end, ..} => vec![ParentType::Range(start.clone(), end.clone())],
-            Expr::BinOp(left, _, right) => {
+            Expr::InfixOp(left, _, right) => {
                 let mut deps = left.get_dependency_list();
                 deps.append(&mut right.get_dependency_list());
                 deps
@@ -132,12 +134,36 @@ pub enum RangeFunction {
     Max,
     Min,
     Stdev,
+    Count
 }
 
 #[derive(Debug, Clone)]
 pub enum BinaryFunction {
+    Round
+}
+
+#[derive(Debug, Clone)]
+pub enum TernaryFunction {
+    IfThenElse
+}
+
+#[derive(Debug, Clone)]
+pub enum InfixFunction {
     Mul,
     Div,
     Add,
     Sub,
+    Pow,
+    FloorDiv,
+    Mod,
+
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    And,
+    Or,
+    Not,
+    
+    Concat,
 }

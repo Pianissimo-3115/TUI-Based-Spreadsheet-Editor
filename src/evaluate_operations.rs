@@ -3,7 +3,7 @@
 // use std::cmp;
 use std::thread;
 use std::time::Duration;
-use crate::ast::{Addr, BinaryFunction, Expr, MonoFunction, ParentType, RangeFunction};
+use crate::ast::{Addr, InfixFunction, Expr, MonoFunction, ParentType, RangeFunction};
 use crate::cell_operations::{Sheet,Cell,CellFunc,ValueType,Column};
 #[allow(unused_imports)]
 use std::rc::{Rc, Weak};
@@ -439,11 +439,11 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
             }
         }
-        Expr:: BinOp(exp1,func , exp2 ) =>
+        Expr:: InfixOp(exp1,func , exp2 ) =>
         {
             match func 
             {
-                BinaryFunction:: Mul =>
+                InfixFunction:: Mul =>
                 {
                     let left = eval(exp1, sheets)?;
                     let right = eval(exp2, sheets)?;
@@ -471,7 +471,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                         }
                     }
                 },
-                BinaryFunction::Add =>
+                InfixFunction::Add =>
                 {
                     let left = eval(exp1, sheets)?;
                     let right = eval(exp2, sheets)?;
@@ -498,7 +498,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                         }
                     }
                 },
-                BinaryFunction::Sub =>
+                InfixFunction::Sub =>
                 {
                     let left = eval(exp1, sheets)?;
                     let right = eval(exp2, sheets)?;
@@ -525,7 +525,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                         }
                     }
                 },
-                BinaryFunction::Div =>
+                InfixFunction::Div =>
                 {
                     let left = eval(exp1, sheets)?;
                     let right = eval(exp2, sheets)?;

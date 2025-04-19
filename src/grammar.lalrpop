@@ -56,26 +56,26 @@ Expr: (Box<Expr>, Vec<ParentType>) = { // (1)
     <e_v1: Expr> <o: ExprOp> <f_v2: Factor> => { 
         let ((e, mut v1), (f, mut v2)) = (e_v1, f_v2);
         v1.append(&mut v2);
-        (Box::new(Expr::BinOp(e, o, f)), v1)},
+        (Box::new(Expr::InfixOp(e, o, f)), v1)},
     Factor,
 };
 
-ExprOp: BinaryFunction = { 
-    "+" => BinaryFunction::Add,
-    "-" => BinaryFunction::Sub,
+ExprOp: InfixFunction = { 
+    "+" => InfixFunction::Add,
+    "-" => InfixFunction::Sub,
 };
 
 Factor: (Box<Expr>, Vec<ParentType>) = {
     <f_v1: Factor> <o: FactorOp> <a_v2: Atom> => { 
     let ((f, mut v1), (a, mut v2)) = (f_v1, a_v2);
     v1.append(&mut v2);
-    (Box::new(Expr::BinOp(f, o, a)), v1)},  
+    (Box::new(Expr::InfixOp(f, o, a)), v1)},  
     Atom,
 };
 
-FactorOp: BinaryFunction = {
-    "*" => BinaryFunction::Mul,
-    "/" => BinaryFunction::Div,
+FactorOp: InfixFunction = {
+    "*" => InfixFunction::Mul,
+    "/" => InfixFunction::Div,
 };
 
 Atom: (Box<Expr>, Vec<ParentType>) = {
