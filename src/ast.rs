@@ -41,6 +41,8 @@ pub enum DisplayCommand {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
+    Bool(bool),
+    String(String),
     Integer(i32),
     Float(f64),
     Cell(Addr),
@@ -75,6 +77,8 @@ impl Expr
         match self 
         {
             Expr::Integer(_) => vec![],
+            Expr::String(_) => vec![],
+            Expr::Bool(_) => vec![],
             Expr::Float(_) => vec![],
             Expr::Cell(addr) => vec![ParentType::Single(addr.clone())],
             Expr::MonoOp(_, expr) => expr.get_dependency_list(),
@@ -84,6 +88,18 @@ impl Expr
                 deps.append(&mut right.get_dependency_list());
                 deps
             }
+            Expr::BinOp(_, left, right) => {
+                let mut deps = left.get_dependency_list();
+                deps.append(&mut right.get_dependency_list());
+                deps
+            }
+            Expr::TernaryOp(_, cond, true_expr, false_expr) => {
+                let mut deps = cond.get_dependency_list();
+                deps.append(&mut true_expr.get_dependency_list());
+                deps.append(&mut false_expr.get_dependency_list());
+                deps
+            }
+
         }
     }
 
@@ -125,6 +141,7 @@ impl Ord for Addr {
 #[derive(Debug, Clone)]
 pub enum MonoFunction {
     Sleep,
+    Not,
 }
 
 #[derive(Debug, Clone)]
@@ -157,13 +174,15 @@ pub enum InfixFunction {
     FloorDiv,
     Mod,
 
+    Eq,
+    Neq,
     Gt,
     Gte,
     Lt,
     Lte,
     And,
     Or,
-    Not,
+    // Not,
     
     Concat,
 }

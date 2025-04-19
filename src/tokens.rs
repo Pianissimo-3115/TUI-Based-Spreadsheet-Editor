@@ -5,7 +5,7 @@ use logos::Logos;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum LexicalError {
     InvalidInteger(ParseIntError),
-    InternalError(String)
+    InternalError(String),
     #[default]
     InvalidToken,
     
@@ -60,8 +60,8 @@ pub enum Token {
     Integer(i32),
 
 
-    #[regex("True|False", |lex| match lex {"True" => true, "False" => false, _})]
-    LocalCell((u32, u32)),
+    #[regex("True|False", |lex| Some(lex.slice() == "True"))]
+    Bool(bool),
   
     #[regex("[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_local_cell(lex.slice()))]
     LocalCell((u32, u32)),
