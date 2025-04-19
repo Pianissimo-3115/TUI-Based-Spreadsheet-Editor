@@ -3,7 +3,7 @@
 // use std::cmp;
 use std::thread;
 use std::time::Duration;
-use crate::ast::{Addr, BinaryFunction, Expr, MonoFunction, ParentType, RangeFunction};
+use crate::ast::{Addr, InfixFunction, Expr, MonoFunction, ParentType, RangeFunction, BinaryFunction, TernaryFunction};
 use crate::cell_operations::{Sheet,Cell,CellFunc,ValueType,Column};
 #[allow(unused_imports)]
 use std::rc::{Rc, Weak};
@@ -11,7 +11,7 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
 // use crate::cell_operations::CellFunc;
-fn min_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn min_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -30,25 +30,28 @@ fn min_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<Va
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = temp.value 
+            if cond 
             {
-                if (value as f64) < mini 
+                if let ValueType::IntegerValue(value) = temp.value 
                 {
-                    mini = value as f64;
+                    if (value as f64) < mini 
+                    {
+                        mini = value as f64;
+                    }
                 }
-            }
-            else if let ValueType::FloatValue(value) = temp.value 
-            {
-                isfloat = true;
-                if value < mini 
+                else if let ValueType::FloatValue(value) = temp.value 
                 {
-                    mini = value;
+                    isfloat = true;
+                    if value < mini 
+                    {
+                        mini = value;
+                    }
                 }
-            }
-            else 
-            {
-                return Err(format!("cell at ({}, {}) does not have numeral Type, but used in MIN function", col, row));
-            }            
+                else 
+                {
+                    return Err(format!("cell at ({}, {}) does not have numeral Type, but used in MIN function", col, row));
+                }     
+            }       
         }
     }
     if isfloat
@@ -61,7 +64,7 @@ fn min_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<Va
     }
 }
 
-fn max_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn max_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -80,25 +83,28 @@ fn max_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<Va
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = temp.value 
+            if cond 
             {
-                if (value as f64) > maxi 
+                if let ValueType::IntegerValue(value) = temp.value 
                 {
-                    maxi = value as f64;
+                    if (value as f64) > maxi 
+                    {
+                        maxi = value as f64;
+                    }
                 }
-            }
-            else if let ValueType::FloatValue(value) = temp.value 
-            {
-                isfloat = true;
-                if value > maxi 
+                else if let ValueType::FloatValue(value) = temp.value 
                 {
-                    maxi = value;
+                    isfloat = true;
+                    if value > maxi 
+                    {
+                        maxi = value;
+                    }
                 }
-            }
-            else 
-            {
-                return Err(format!("cell at ({}, {}) does not have numeral Type, but used in MAX function", col, row));
-            }            
+                else 
+                {
+                    return Err(format!("cell at ({}, {}) does not have numeral Type, but used in MAX function", col, row));
+                }            
+            }           
         }
     }
     if isfloat 
@@ -111,7 +117,7 @@ fn max_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<Va
     }
 }
 
-fn sum_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn sum_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -130,18 +136,21 @@ fn sum_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<Va
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = temp.value 
+            if cond 
             {
-                summ += value as f64;
-            }
-            else if let ValueType::FloatValue(value) = temp.value 
-            {
-                isfloat = true;
-                summ+= value;
-            }
-            else 
-            {
-                return Err(format!("cell at ({}, {}) does not have numeral Type, but used in SUM function", col, row));
+                if let ValueType::IntegerValue(value) = temp.value 
+                {
+                    summ += value as f64;
+                }
+                else if let ValueType::FloatValue(value) = temp.value 
+                {
+                    isfloat = true;
+                    summ += value;
+                }
+                else 
+                {
+                    return Err(format!("cell at ({}, {}) does not have numeral Type, but used in SUM function", col, row));
+                }        
             }        
         }
     }
@@ -155,7 +164,7 @@ fn sum_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<Va
     }
 }
 
-fn avg_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn avg_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
 {
     
     let cell1: (u32, u32) = range.0;
@@ -174,20 +183,24 @@ fn avg_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<Va
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = temp.value 
+            if cond 
             {
-                summ += value as f64;
-                count += 1;
+                if let ValueType::IntegerValue(value) = temp.value 
+                {
+                    summ += value as f64;
+                    count += 1;
+                }
+                else if let ValueType::FloatValue(value) = temp.value 
+                {
+                    summ += value;
+                    count += 1; 
+                }
+                else 
+                {
+                    return Err(format!("cell at ({}, {}) does not have numeral Type, but used in AVG function", col, row));
+                }        
             }
-            else if let ValueType::FloatValue(value) = temp.value 
-            {
-                summ += value;
-                count += 1; 
-            }
-            else 
-            {
-                return Err(format!("cell at ({}, {}) does not have numeral Type, but used in AVG function", col, row));
-            }        
+                   
         }
     }
     if count == 0 
@@ -200,7 +213,7 @@ fn avg_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<Va
     }
 }
 
-fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<ValueType, String> 
+fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
 {
     let cell1: (u32, u32) = range.0;
     let cell2: (u32, u32) = range.1;
@@ -218,20 +231,23 @@ fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = temp.value 
+            if cond 
             {
-                summ += value as f64;
-                count += 1;
-            }
-            else if let ValueType::FloatValue(value) = temp.value 
-            {
-                summ += value;
-                count += 1; 
-            }
-            else 
-            {
-                return Err(format!("cell at ({}, {}) does not have numeral Type, but used in AVG function", col, row));
-            }        
+                if let ValueType::IntegerValue(value) = temp.value 
+                {
+                    summ += value as f64;
+                    count += 1;
+                }
+                else if let ValueType::FloatValue(value) = temp.value 
+                {
+                    summ += value;
+                    count += 1; 
+                }
+                else 
+                {
+                    return Err(format!("cell at ({}, {}) does not have numeral Type, but used in STDEV function", col, row));
+                }        
+            }       
         }
     }
 
@@ -251,23 +267,61 @@ fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32))) -> Result<
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            else if let ValueType::IntegerValue(value) = temp.value 
+            if cond 
             {
-                sum_squared_diff += (value as f64 - mean).powi(2);
+                if let ValueType::IntegerValue(value) = temp.value 
+                {
+                    let diff = value as f64 - mean;
+                    sum_squared_diff += diff * diff;
+                }
+                else if let ValueType::FloatValue(value) = temp.value 
+                {
+                    let diff = value - mean;
+                    sum_squared_diff += diff * diff;
+                }
+                else 
+                {
+                    return Err(format!("cell at ({}, {}) does not have numeral Type, but used in STDEV function", col, row));
+                }
             }
-            else if let ValueType::FloatValue(value) = temp.value 
-            {
-                sum_squared_diff += (value - mean).powi(2);
-            }
-            else 
-            {
-                return Err(format!("cell at ({}, {}) does not have numeral Type, but used in STDEV function", col, row));
-            } 
         }
     }
 
     let stdev = (sum_squared_diff / (count as f64)).sqrt();
     Ok(ValueType::FloatValue(stdev))
+}
+
+fn count_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
+{
+    let cell1: (u32, u32) = range.0;
+    let cell2: (u32, u32) = range.1;
+    let mut count = 0;
+    for col in cell1.1..=cell2.1 
+    {
+        for row in cell1.0..=cell2.0 
+        {
+            
+            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
+            let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
+            let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            if !temp.valid 
+            {
+                return Err(format!("Invalid cell at ({}, {})", col, row));
+            }
+            if cond 
+            {
+                if let ValueType::IntegerValue(_) = temp.value 
+                {
+                    count += 1;
+                }
+                else if let ValueType::FloatValue(_) = temp.value 
+                {
+                    count += 1;
+                }
+            }      
+        }
+    }
+    Ok(ValueType::IntegerValue(count as i32))
 }
 
 fn sleep(seconds: f64)
@@ -353,6 +407,9 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
     {
         Expr::Integer(n) => Ok(ValueType::IntegerValue(*n)),
         Expr::Float(n) => Ok(ValueType::FloatValue(*n)),
+        Expr::String(s) => Ok(ValueType::String(s.clone())),
+        Expr::Bool(b) => Ok(ValueType::BoolValue(*b)),
+
         Expr::Cell(addr) =>
         {
             let Addr { sheet:sheet_num, row, col } = addr;
@@ -396,54 +453,106 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                     }
                     Ok(sleep_val)
                 }
+                MonoFunction::Not =>
+                {
+                    let val = eval(exp, sheets)?;
+                    match val 
+                    {
+                        ValueType::BoolValue(b) => Ok(ValueType::BoolValue(!b)),
+                        _ => return Err("Not operator can only be used on boolean values".to_string())
+                    }
+                },
             }
         }
-        Expr::RangeOp{op,start, end} =>
+        Expr::RangeOp{op,start, end, cond} =>
         {
             match op 
             {
                 RangeFunction::Min => 
                 {
+                    let cond = eval(cond, sheets)?;
+                    let cond = match cond 
+                    {
+                        ValueType::BoolValue(b) => b,
+                        _ => return Err("Condition should be boolean".to_string())
+                    };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
-                    min_eval(&sheet.data, range)
+                    min_eval(&sheet.data, range, cond)
                 },
                 RangeFunction::Max => 
                 {
+                    let cond = eval(cond, sheets)?;
+                    let cond = match cond 
+                    {
+                        ValueType::BoolValue(b) => b,
+                        _ => return Err("Condition should be boolean".to_string())
+                    };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
-                    max_eval(&sheet.data, range)
+                    max_eval(&sheet.data, range, cond)
                 },
                 RangeFunction::Sum => 
                 {
+                    let cond = eval(cond, sheets)?;
+                    let cond = match cond 
+                    {
+                        ValueType::BoolValue(b) => b,
+                        _ => return Err("Condition should be boolean".to_string())
+                    };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
-                    sum_eval(&sheet.data, range)
+                    sum_eval(&sheet.data, range, cond)
                 },
                 RangeFunction::Avg => 
                 {
+                    let cond = eval(cond, sheets)?;
+                    let cond = match cond 
+                    {
+                        ValueType::BoolValue(b) => b,
+                        _ => return Err("Condition should be boolean".to_string())
+                    };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
-                    avg_eval(&sheet.data, range)
+                    avg_eval(&sheet.data, range, cond)
                 },
                 RangeFunction::Stdev => 
                 {
+                    let cond = eval(cond, sheets)?;
+                    let cond = match cond 
+                    {
+                        ValueType::BoolValue(b) => b,
+                        _ => return Err("Condition should be boolean".to_string())
+                    };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
-                    stdev_eval(&sheet.data, range)
+                    stdev_eval(&sheet.data, range, cond)
                 },
+                RangeFunction::Count =>
+                {
+                    let cond = eval(cond, sheets)?;
+                    let cond = match cond 
+                    {
+                        ValueType::BoolValue(b) => b,
+                        _ => return Err("Condition should be boolean".to_string())
+                    };
+                    let sheet_index = start.sheet as usize;
+                    let sheet = (*sheets)[sheet_index].borrow().clone();
+                    let range = ((start.row, start.col), (end.row,end.col));
+                    count_eval(&sheet.data, range, cond)
+                }
             }
         }
-        Expr:: BinOp(exp1,func , exp2 ) =>
+        Expr:: InfixOp(exp1,func , exp2 ) =>
         {
             match func 
             {
-                BinaryFunction:: Mul =>
+                InfixFunction:: Mul =>
                 {
                     let left = eval(exp1, sheets)?;
                     let right = eval(exp2, sheets)?;
@@ -471,7 +580,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                         }
                     }
                 },
-                BinaryFunction::Add =>
+                InfixFunction::Add =>
                 {
                     let left = eval(exp1, sheets)?;
                     let right = eval(exp2, sheets)?;
@@ -498,7 +607,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                         }
                     }
                 },
-                BinaryFunction::Sub =>
+                InfixFunction::Sub =>
                 {
                     let left = eval(exp1, sheets)?;
                     let right = eval(exp2, sheets)?;
@@ -525,7 +634,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                         }
                     }
                 },
-                BinaryFunction::Div =>
+                InfixFunction::Div =>
                 {
                     let left = eval(exp1, sheets)?;
                     let right = eval(exp2, sheets)?;
@@ -575,6 +684,277 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                         {
                             Err("String used in Division".to_string())
                         }
+                    }
+                },
+                InfixFunction::Mod =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => 
+                        {
+                            if m == 0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else {
+                                Ok(ValueType::IntegerValue(n % m))
+                            }
+                        },
+                        (_, _) =>
+                        {
+                            Err("Modulus can only be used if both the operands are integers".to_string())
+                        }
+                    }
+                },
+                InfixFunction::Pow => 
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => 
+                        {
+                            if m < 0 
+                            {
+                                Ok(ValueType::FloatValue((n as f64).powf(m as f64)))
+                            } 
+                            else 
+                            {
+                                Ok(ValueType::IntegerValue(n.pow(m as u32)))
+                            }
+                        },
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => 
+                        {
+                            Ok(ValueType::FloatValue(n.powf(m)))
+                        },
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => 
+                        {
+                            Ok(ValueType::FloatValue((n as f64).powf(m)))
+                        },
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => 
+                        {
+                            Ok(ValueType::FloatValue(n.powf(m as f64)))
+                        },
+                        (_, _) =>
+                        {
+                            Err("Power can only be used if the operands are integers or floats".to_string())
+                        }
+                    }
+                },
+                InfixFunction::FloorDiv => 
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                
+                    match (left, right) {
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => 
+                        {
+                            if m == 0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else 
+                            {
+                                let div = n / m;
+                                let rem = n % m;
+                                if rem != 0 && (rem < 0) != (m < 0) 
+                                {
+                                    Ok(ValueType::IntegerValue(div - 1))
+                                } 
+                                else 
+                                {
+                                    Ok(ValueType::IntegerValue(div))
+                                }
+                            }
+                        },
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => 
+                        {
+                            if m == 0.0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else 
+                            {
+                                Ok(ValueType::FloatValue((n / m).floor()))
+                            }
+                        },
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => 
+                        {
+                            if m == 0.0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else 
+                            {
+                                Ok(ValueType::FloatValue((n as f64 / m).floor()))
+                            }
+                        },
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => 
+                        {
+                            if m == 0 
+                            {
+                                Err("Division by zero".to_string())
+                            } 
+                            else 
+                            {
+                                Ok(ValueType::FloatValue((n / m as f64).floor()))
+                            }
+                        },
+                        (_,_) => 
+                        {
+                            Err("Floor Division can only be used if both operands are integers or floats".to_string())
+                        }
+                    }
+                },      
+                InfixFunction::And =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::BoolValue(n), ValueType::BoolValue(m)) => Ok(ValueType::BoolValue(n && m)),
+                        (_, _) => Err("AND can only be used if both the operands are boolean".to_string())
+                    }
+                },
+                InfixFunction::Or =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::BoolValue(n), ValueType::BoolValue(m)) => Ok(ValueType::BoolValue(n || m)),
+                        (_, _) => Err("OR can only be used if both the operands are boolean".to_string())
+                    }
+                },                
+                InfixFunction::Eq =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::BoolValue(n), ValueType::BoolValue(m)) => Ok(ValueType::BoolValue(n == m)),
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n == m)),
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n == m)),
+                        (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::BoolValue(n == m)),
+                        (_, _) => Err("Equality can only be used if both the operands are of same type".to_string())
+                    }
+                },
+                InfixFunction::Neq =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::BoolValue(n), ValueType::BoolValue(m)) => Ok(ValueType::BoolValue(n != m)),
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n != m)),
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n != m)),
+                        (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::BoolValue(n != m)),
+                        (_, _) => Err("Inequality can only be used if both the operands are of same type".to_string())
+                    }
+                },
+                InfixFunction::Lt =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n < m)),
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n < m)),
+                        (_, _) => Err("Less than can only be used if both the operands are of same type".to_string())
+                    }
+                },
+                InfixFunction::Gt =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n > m)),
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n > m)),
+                        (_, _) => Err("Greater than can only be used if both the operands are of same type".to_string())
+                    }
+                },
+                InfixFunction::Lte =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n <= m)),
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n <= m)),
+                        (_, _) => Err("Less than or equal to can only be used if both the operands are of same type".to_string())
+                    }
+                },
+                InfixFunction::Gte =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n >= m)),
+                        (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n >= m)),
+                        (_, _) => Err("Greater than or equal to can only be used if both the operands are of same type".to_string())
+                    }
+                },
+                InfixFunction::Concat =>
+                {
+                    let left = eval(exp1, sheets)?;
+                    let right = eval(exp2, sheets)?;
+                    match (left, right) 
+                    {
+                        (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::String(n + &m)),
+                        (_, _) => Err("Concatenation can only be used if both the operands are strings".to_string())
+                    }
+                },
+            }
+        }
+        Expr::TernaryOp(fun, cond, true_exp, false_exp) =>
+        {
+            match fun 
+            {
+                TernaryFunction::IfThenElse => 
+                {
+                    let cond = eval(cond, sheets)?;
+                    match cond 
+                    {
+                        ValueType::BoolValue(b) => 
+                        {
+                            if b 
+                            {
+                                eval(true_exp, sheets)
+                            } 
+                            else 
+                            {
+                                eval(false_exp, sheets)
+                            }
+                        },
+                        _ => Err("Condition should be boolean".to_string())
+                    }
+                }
+            }
+        }
+        Expr::BinOp(fun, exp1, exp2) =>
+        {
+            match fun 
+            {
+                BinaryFunction::Round =>
+                {
+                    let val = eval(exp1, sheets)?;
+                    let places = eval(exp2, sheets)?;
+                    match (val, places) 
+                    {
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => 
+                        {
+                            if m < 0 
+                            {
+                                return Err("Negative decimal places".to_string());
+                            }
+                            let factor = 10f64.powi(m as i32);
+                            Ok(ValueType::FloatValue((n * factor).round() / factor))
+                        },
+                        _ => Err("Round function takes a float and an integer".to_string())
                     }
                 }
             }
