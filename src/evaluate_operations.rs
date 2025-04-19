@@ -11,11 +11,12 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
 // use crate::cell_operations::CellFunc;
-fn min_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
+fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
     
-    let cell1: (u32, u32) = range.0;
-    let cell2: (u32, u32) = range.1;
+    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    let cell1: (u32, u32) = (range.0.row, range.0.col);
+    let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut mini = f64::MAX;
     let mut isfloat = false;
     for col in cell1.1..=cell2.1 
@@ -30,7 +31,14 @@ fn min_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            if cond 
+            let cond_clone = **cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_bool = match cond_eval 
+            {
+                ValueType::BoolValue(b) => b,
+                _ => return Err("Condition should be boolean".to_string())
+            };
+            if cond_bool
             {
                 if let ValueType::IntegerValue(value) = temp.value 
                 {
@@ -64,11 +72,12 @@ fn min_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) 
     }
 }
 
-fn max_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
+fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
     
-    let cell1: (u32, u32) = range.0;
-    let cell2: (u32, u32) = range.1;
+    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    let cell1: (u32, u32) = (range.0.row, range.0.col);
+    let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut maxi = f64::MIN;
     let mut isfloat = false;
     for col in cell1.1..=cell2.1 
@@ -83,7 +92,14 @@ fn max_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            if cond 
+            let cond_clone = **cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_bool = match cond_eval 
+            {
+                ValueType::BoolValue(b) => b,
+                _ => return Err("Condition should be boolean".to_string())
+            };
+            if cond_bool
             {
                 if let ValueType::IntegerValue(value) = temp.value 
                 {
@@ -117,11 +133,12 @@ fn max_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) 
     }
 }
 
-fn sum_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
+fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
     
-    let cell1: (u32, u32) = range.0;
-    let cell2: (u32, u32) = range.1;
+    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    let cell1: (u32, u32) = (range.0.row, range.0.col);
+    let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut summ = 0 as f64;
     let mut isfloat = false;
     for col in cell1.1..=cell2.1 
@@ -136,7 +153,14 @@ fn sum_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            if cond 
+            let cond_clone = **cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_bool = match cond_eval 
+            {
+                ValueType::BoolValue(b) => b,
+                _ => return Err("Condition should be boolean".to_string())
+            };
+            if cond_bool
             {
                 if let ValueType::IntegerValue(value) = temp.value 
                 {
@@ -164,11 +188,12 @@ fn sum_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) 
     }
 }
 
-fn avg_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
+fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
     
-    let cell1: (u32, u32) = range.0;
-    let cell2: (u32, u32) = range.1;
+    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    let cell1: (u32, u32) = (range.0.row, range.0.col);
+    let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut summ = 0 as f64;
     let mut count = 0;
     for col in cell1.1..=cell2.1 
@@ -183,7 +208,14 @@ fn avg_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            if cond 
+            let cond_clone = **cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_bool = match cond_eval 
+            {
+                ValueType::BoolValue(b) => b,
+                _ => return Err("Condition should be boolean".to_string())
+            };
+            if cond_bool
             {
                 if let ValueType::IntegerValue(value) = temp.value 
                 {
@@ -213,10 +245,11 @@ fn avg_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) 
     }
 }
 
-fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
+fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
-    let cell1: (u32, u32) = range.0;
-    let cell2: (u32, u32) = range.1;
+    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    let cell1: (u32, u32) = (range.0.row, range.0.col);
+    let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut summ = 0 as f64;
     let mut count = 0;
     for col in cell1.1..=cell2.1 
@@ -231,7 +264,14 @@ fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            if cond 
+            let cond_clone = **cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_bool = match cond_eval 
+            {
+                ValueType::BoolValue(b) => b,
+                _ => return Err("Condition should be boolean".to_string())
+            };
+            if cond_bool
             {
                 if let ValueType::IntegerValue(value) = temp.value 
                 {
@@ -267,7 +307,14 @@ fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            if cond 
+            let cond_clone = **cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_bool = match cond_eval 
+            {
+                ValueType::BoolValue(b) => b,
+                _ => return Err("Condition should be boolean".to_string())
+            };
+            if cond_bool
             {
                 if let ValueType::IntegerValue(value) = temp.value 
                 {
@@ -291,10 +338,11 @@ fn stdev_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool
     Ok(ValueType::FloatValue(stdev))
 }
 
-fn count_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool) -> Result<ValueType, String> 
+fn count_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
-    let cell1: (u32, u32) = range.0;
-    let cell2: (u32, u32) = range.1;
+    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    let cell1: (u32, u32) = (range.0.row, range.0.col);
+    let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut count = 0;
     for col in cell1.1..=cell2.1 
     {
@@ -308,7 +356,14 @@ fn count_eval(data: &[RefCell<Column>], range: ((u32,u32),(u32,u32)), cond: bool
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            if cond 
+            let cond_clone = **cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_bool = match cond_eval 
+            {
+                ValueType::BoolValue(b) => b,
+                _ => return Err("Condition should be boolean".to_string())
+            };
+            if cond_bool
             {
                 if let ValueType::IntegerValue(_) = temp.value 
                 {
@@ -401,7 +456,7 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dep
 } 
 
 
-fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,String> 
+fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: Option<Addr>) -> Result<ValueType,String> 
 {
     match expr 
     {
@@ -431,7 +486,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
             {
                 MonoFunction::Sleep =>
                 {
-                    let sleep_val = eval(exp, sheets)?;
+                    let sleep_val = eval(exp, sheets, caller_cell)?;
                     match sleep_val {
                         ValueType::IntegerValue(sec) => 
                             {
@@ -455,7 +510,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 }
                 MonoFunction::Not =>
                 {
-                    let val = eval(exp, sheets)?;
+                    let val = eval(exp, sheets, caller_cell)?;
                     match val 
                     {
                         ValueType::BoolValue(b) => Ok(ValueType::BoolValue(!b)),
@@ -470,12 +525,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
             {
                 RangeFunction::Min => 
                 {
-                    let cond = eval(cond, sheets)?;
-                    let cond = match cond 
-                    {
-                        ValueType::BoolValue(b) => b,
-                        _ => return Err("Condition should be boolean".to_string())
-                    };
+                    // let cond = eval(cond, sheets, cell_address)?;
+                    // let cond = match cond 
+                    // {
+                    //     ValueType::BoolValue(b) => b,
+                    //     _ => return Err("Condition should be boolean".to_string())
+                    // };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
@@ -483,12 +538,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 RangeFunction::Max => 
                 {
-                    let cond = eval(cond, sheets)?;
-                    let cond = match cond 
-                    {
-                        ValueType::BoolValue(b) => b,
-                        _ => return Err("Condition should be boolean".to_string())
-                    };
+                    // let cond = eval(cond, sheets, cell_address)?;
+                    // let cond = match cond 
+                    // {
+                    //     ValueType::BoolValue(b) => b,
+                    //     _ => return Err("Condition should be boolean".to_string())
+                    // };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
@@ -496,12 +551,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 RangeFunction::Sum => 
                 {
-                    let cond = eval(cond, sheets)?;
-                    let cond = match cond 
-                    {
-                        ValueType::BoolValue(b) => b,
-                        _ => return Err("Condition should be boolean".to_string())
-                    };
+                    // let cond = eval(cond, sheets, cell_address)?;
+                    // let cond = match cond 
+                    // {
+                    //     ValueType::BoolValue(b) => b,
+                    //     _ => return Err("Condition should be boolean".to_string())
+                    // };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
@@ -509,12 +564,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 RangeFunction::Avg => 
                 {
-                    let cond = eval(cond, sheets)?;
-                    let cond = match cond 
-                    {
-                        ValueType::BoolValue(b) => b,
-                        _ => return Err("Condition should be boolean".to_string())
-                    };
+                    // let cond = eval(cond, sheets, cell_address)?;
+                    // let cond = match cond 
+                    // {
+                    //     ValueType::BoolValue(b) => b,
+                    //     _ => return Err("Condition should be boolean".to_string())
+                    // };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
@@ -522,12 +577,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 RangeFunction::Stdev => 
                 {
-                    let cond = eval(cond, sheets)?;
-                    let cond = match cond 
-                    {
-                        ValueType::BoolValue(b) => b,
-                        _ => return Err("Condition should be boolean".to_string())
-                    };
+                    // let cond = eval(cond, sheets, cell_address)?;
+                    // let cond = match cond 
+                    // {
+                    //     ValueType::BoolValue(b) => b,
+                    //     _ => return Err("Condition should be boolean".to_string())
+                    // };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
@@ -535,12 +590,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 RangeFunction::Count =>
                 {
-                    let cond = eval(cond, sheets)?;
-                    let cond = match cond 
-                    {
-                        ValueType::BoolValue(b) => b,
-                        _ => return Err("Condition should be boolean".to_string())
-                    };
+                    // let cond = eval(cond, sheets, cell_address)?;
+                    // let cond = match cond 
+                    // {
+                    //     ValueType::BoolValue(b) => b,
+                    //     _ => return Err("Condition should be boolean".to_string())
+                    // };
                     let sheet_index = start.sheet as usize;
                     let sheet = (*sheets)[sheet_index].borrow().clone();
                     let range = ((start.row, start.col), (end.row,end.col));
@@ -554,8 +609,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
             {
                 InfixFunction:: Mul =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left,right) 
                     {
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) =>
@@ -582,8 +637,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Add =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) {
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) =>
                         {
@@ -609,8 +664,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Sub =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) {
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) =>
                         {
@@ -636,8 +691,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Div =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) => 
@@ -688,8 +743,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Mod =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => 
@@ -710,8 +765,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Pow => 
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => 
@@ -745,8 +800,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::FloorDiv => 
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                 
                     match (left, right) {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => 
@@ -810,8 +865,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },      
                 InfixFunction::And =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::BoolValue(n), ValueType::BoolValue(m)) => Ok(ValueType::BoolValue(n && m)),
@@ -820,8 +875,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Or =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::BoolValue(n), ValueType::BoolValue(m)) => Ok(ValueType::BoolValue(n || m)),
@@ -830,8 +885,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },                
                 InfixFunction::Eq =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::BoolValue(n), ValueType::BoolValue(m)) => Ok(ValueType::BoolValue(n == m)),
@@ -843,8 +898,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Neq =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::BoolValue(n), ValueType::BoolValue(m)) => Ok(ValueType::BoolValue(n != m)),
@@ -856,8 +911,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Lt =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n < m)),
@@ -867,8 +922,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Gt =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n > m)),
@@ -878,8 +933,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Lte =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n <= m)),
@@ -889,8 +944,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Gte =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n >= m)),
@@ -900,8 +955,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 },
                 InfixFunction::Concat =>
                 {
-                    let left = eval(exp1, sheets)?;
-                    let right = eval(exp2, sheets)?;
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
                     match (left, right) 
                     {
                         (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::String(n + &m)),
@@ -916,18 +971,18 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
             {
                 TernaryFunction::IfThenElse => 
                 {
-                    let cond = eval(cond, sheets)?;
+                    let cond = eval(cond, sheets, caller_cell)?;
                     match cond 
                     {
                         ValueType::BoolValue(b) => 
                         {
                             if b 
                             {
-                                eval(true_exp, sheets)
+                                eval(true_exp, sheets, caller_cell)
                             } 
                             else 
                             {
-                                eval(false_exp, sheets)
+                                eval(false_exp, sheets, caller_cell)
                             }
                         },
                         _ => Err("Condition should be boolean".to_string())
@@ -941,8 +996,8 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
             {
                 BinaryFunction::Round =>
                 {
-                    let val = eval(exp1, sheets)?;
-                    let places = eval(exp2, sheets)?;
+                    let val = eval(exp1, sheets, caller_cell)?;
+                    let places = eval(exp2, sheets, caller_cell)?;
                     match (val, places) 
                     {
                         (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => 
@@ -959,6 +1014,33 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                 }
             }
         }
+    
+        Expr::Wildcard =>
+        {
+            match caller_cell 
+            {
+                Some(address) =>
+                {
+                    let Addr { sheet:sheet_num, row, col } = address;
+                    let sheet_num = *sheet_num;
+                    let col = *col;
+                    let row = *row;
+                    let sheet_ref =&(*sheets)[sheet_num as usize];
+                    let sheet = sheet_ref.borrow();
+                    let column_ref = &sheet.data[col as usize];
+                    let column = column_ref.borrow_mut();
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    drop(column);
+                    let parent_cell = cell_rc.borrow();
+                    Ok(parent_cell.value.clone())
+                }
+                None =>
+                {
+                    return Err("Cannot evaluate wildcard in this context".to_string());
+                }
+            }
+        }
+
     }
 }
 
@@ -973,7 +1055,7 @@ fn calculate(cell_rc:Rc<RefCell<Cell>>, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Res
         Some(func) =>
         {   
             let expr = &func.expression;
-            let temp = eval(expr, sheets);
+            let temp = eval(expr, sheets, Option::None);
             if let Err(err) = temp 
             {
                 cell.valid = false;

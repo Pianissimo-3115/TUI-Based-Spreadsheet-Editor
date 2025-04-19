@@ -46,6 +46,7 @@ pub enum Expr {
     Integer(i32),
     Float(f64),
     Cell(Addr),
+    Wildcard,
     MonoOp(MonoFunction, Box<Expr>),
     RangeOp{op: RangeFunction, start: Addr, end: Addr, cond: Box<Expr>}, //Note: Should addr be under Box<>?
     InfixOp(Box<Expr>, InfixFunction, Box<Expr>),
