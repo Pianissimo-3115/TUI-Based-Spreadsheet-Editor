@@ -568,7 +568,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<ValueType,Strin
                                 Err("Division by zero".to_string())
                             } 
                             else {
-                                Ok(ValueType::IntegerValue(n / m))
+                                Ok(ValueType::FloatValue(n as f64 / m as f64))
                             }
                         },
                         (_, _) =>
