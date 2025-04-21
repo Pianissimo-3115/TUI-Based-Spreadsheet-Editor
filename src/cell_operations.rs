@@ -3,7 +3,7 @@
 use crate::ast::{Expr, Addr};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
-use std::ops::{Index, IndexMut};
+use std::ops::Index;
 // #[allow(unused_imports)]
 use std::rc::Rc;
 
