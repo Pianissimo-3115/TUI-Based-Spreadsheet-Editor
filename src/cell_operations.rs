@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 use std::ops::Index;
 // #[allow(unused_imports)]
 use std::rc::Rc;
+use std::vec;
 
 
 
@@ -163,6 +164,22 @@ impl Column
         }
         return self.cells[row].borrow().value.clone() //NOTE: Doing clone here cause bohot koshish ke baad mujhse references nahi bheja gaya. Chota struct hai to farak nahi padna chahiye.
     }
+
+    fn expr_at(&self,row: usize, formula_width: usize)
+    {
+        if row >= self.cells.len()
+        {
+            print!("");
+        }
+        if let Some(cell_func) = &self.cells[row].borrow().cell_func 
+        {
+            print!("{:>formula_width$}", cell_func.expression);
+        } 
+        else 
+        {
+            print!(""); 
+        }
+    }
 }
 
 
@@ -213,6 +230,11 @@ impl Sheet
     
     pub fn val_at(&self, col: usize, row: usize) -> ValueType {  
         self.data[col].borrow().val_at(row)
+    }
+
+    pub fn expr_at(&self, col: usize, row: usize, formula_width : usize)
+    {
+        self.data[col].borrow().expr_at(row, formula_width);
     }
 
 }

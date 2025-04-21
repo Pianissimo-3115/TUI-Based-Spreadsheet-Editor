@@ -13,7 +13,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp;
 use std::time::Instant;
-
+use std::fs::File;
+use serde::Serialize;
 
 //NOTE: PLEASE HAR JAGA usize KAR DO, bohot zyada conversions karne pad rahe hai
 
@@ -46,21 +47,108 @@ restart
 
 struct Settings{
     cell_width: u32,
+    formula_width: u32
 }
 impl Settings {
     fn new() -> Self {
         Settings{
             cell_width: 9,
+            formula_width: 15
         }
     }
 }
 
+fn import_csv(csv_name: &str) -> Result<Sheet, String>
+{
+    if let Ok(rdr) = Reader::from_path(csv_name)
+    {
+        
+    }
+    else 
+    {
+        return Err("Error reading csv".to_string());
+    }
 
-fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings)
+}
+
+fn export_csv(sheet: &Sheet) -> Result<(), String> 
+{
+    if let Ok(file) = File::create(sheet.sheet_name.clone() + ".csv")
+    {
+        let mut writer = BufWriter::new(file);
+        let mut csv_data : Vec<Vec<String>> = vec![];
+        for col in &sheet.data
+        {
+            csv_data.push(vec![]);
+            if col.borrow() == []
+            {
+                for i in 0..sheet.rows
+                {
+                    if let Some(last) = csv_data.last_mut()
+                    {
+                        *last.push("<EMPTY>".to_string());
+                    }
+                }
+            }
+            else
+            {
+                let curr_rows: usize = col.borrow().cells.len();
+                let row: &Vec<Rc<RefCell<Cell>>> = &col.borrow().cells;
+                for i in 0..curr_rows
+                {
+                    let value = Rc::clone(&row[i as usize]).borrow().value;
+                    if let Some(last) = csv_data.last_mut()
+                    {
+                        *last.push(value.to_string());
+                    }
+
+                }
+            }
+        }
+        for row in 0..csv_data[0].len()
+        {
+            for col in 0..csv_data.len()
+            {
+                if let Ok(()) = write!(writer, "{}", csv_data[col][row])
+                {}
+                else 
+                {
+                    return Err("Error in writing csv".to_string());
+                }
+                if row != csv_data[0].len()-1
+                {
+                    if let Ok(()) = write!(writer, ",")
+                    {}
+                    else 
+                    {
+                        return Err("Error in writing csv".to_string());
+                    }
+                }
+            }
+            if let Ok(()) = writeln!(writer)
+            {}
+            else 
+            {
+                return Err("Error in writing csv".to_string());
+            }
+        }
+
+        Ok(())
+    }
+    else 
+    {
+        return Err("Error in creating csv".to_string());
+    }
+}
+
+
+
+fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings, showformulas: bool)
 {
     let row_max = cmp::min(row+10, sheet.rows);
     let col_max = cmp::min(col+10, sheet.columns);
     let width = settings.cell_width as usize;
+    
     print!("      ");
     for i in col..col_max {
         let mut curr = String::new();
@@ -79,13 +167,22 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings)
     for i in row..row_max {
         print!("{:>width$}", i+1);
         for j in col..col_max {
-            let val =  sheet.val_at(j as usize, i as usize);
-            match val {
-                ValueType::BoolValue(b) => print!("{:>width$}", b),
-                ValueType::IntegerValue(x) => print!("{:>width$}", x),
-                ValueType::FloatValue(n) => print!("{:>width$}", n),
-                ValueType::String(s) => print!("{:>width$}", s),
+
+            if showformulas
+            {
+                sheet.expr_at(j, i, settings.formula_width as usize);
             }
+            else
+            {
+                let val =  sheet.val_at(j as usize, i as usize);
+                match val {
+                    ValueType::BoolValue(b) => print!("{:>width$}", b),
+                    ValueType::IntegerValue(x) => print!("{:>width$}", x),
+                    ValueType::FloatValue(n) => print!("{:>width$}", n),
+                    ValueType::String(s) => print!("{:>width$}", s),
+                }
+
+            }  
             
         }
         println!()
@@ -121,7 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         let mut start = Instant::now();
         if show_window {
             // let curr_sheet = ;
-            display_sheet(curr_col as u32, curr_row as u32, &sheets[0].borrow(),  &settings);
+            display_sheet(curr_col as u32, curr_row as u32, &sheets[0].borrow(),  &settings, false);
         }
         let mut inp = String::new();
         print!("[{}.0] ", last_time);
