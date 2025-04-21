@@ -527,6 +527,10 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
             let cell_rc = Rc::clone(&column[row as usize]);
             drop(column);
             let parent_cell = cell_rc.borrow();
+            if !parent_cell.valid 
+            {
+                return Err("Cell having an error is used".to_string())
+            }
             Ok(parent_cell.value.clone())
         }
         Expr::MonoOp(fun, exp) =>
@@ -786,7 +790,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                                 Err("Division by zero".to_string())
                             } 
                             else {
-                                Ok(ValueType::IntegerValue(n / m))
+                                Ok(ValueType::FloatValue(n as f64 / m as f64))
                             }
                         },
                         (_, _) =>
@@ -947,7 +951,9 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n == m)),
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n == m)),
                         (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::BoolValue(n == m)),
-                        (_, _) => Err("Equality can only be used if both the operands are of same type".to_string())
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(m == (n as f64))),
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n == (m as f64))),
+                        (_, _) => Err("Equality operator cannot be used with strings".to_string())
                     }
                 },
                 InfixFunction::Neq =>
@@ -960,7 +966,9 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n != m)),
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n != m)),
                         (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::BoolValue(n != m)),
-                        (_, _) => Err("Inequality can only be used if both the operands are of same type".to_string())
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(m != (n as f64))),
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n != (m as f64))),
+                        (_, _) => Err("Not equal to operator cannot be used with strings".to_string())
                     }
                 },
                 InfixFunction::Lt =>
@@ -971,7 +979,9 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n < m)),
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n < m)),
-                        (_, _) => Err("Less than can only be used if both the operands are of same type".to_string())
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n < (m as f64))),
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue((n as f64) < m)),
+                        (_, _) => Err("Less than operator cannot be used with strings".to_string())
                     }
                 },
                 InfixFunction::Gt =>
@@ -982,10 +992,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n > m)),
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n > m)),
-                        (_, _) => Err("Greater than can only be used if both the operands are of same type".to_string())
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n > (m as f64))),
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue((n as f64) > m)),
+                        (_, _) => Err("Greater than operator cannot be used with strings".to_string())
                     }
                 },
-                InfixFunction::Lte =>
+                InfixFunction::LtEq =>
                 {
                     let left = eval(exp1, sheets, caller_cell)?;
                     let right = eval(exp2, sheets, caller_cell)?;
@@ -993,10 +1005,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n <= m)),
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n <= m)),
-                        (_, _) => Err("Less than or equal to can only be used if both the operands are of same type".to_string())
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n <= (m as f64))),
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue((n as f64) <= m)),
+                        (_, _) => Err("Less than or equal to operator cannot be used with strings".to_string())
                     }
                 },
-                InfixFunction::Gte =>
+                InfixFunction::GtEq =>
                 {
                     let left = eval(exp1, sheets, caller_cell)?;
                     let right = eval(exp2, sheets, caller_cell)?;
@@ -1004,7 +1018,9 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                     {
                         (ValueType::IntegerValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n >= m)),
                         (ValueType::FloatValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue(n >= m)),
-                        (_, _) => Err("Greater than or equal to can only be used if both the operands are of same type".to_string())
+                        (ValueType::FloatValue(n), ValueType::IntegerValue(m)) => Ok(ValueType::BoolValue(n >= (m as f64))),
+                        (ValueType::IntegerValue(n), ValueType::FloatValue(m)) => Ok(ValueType::BoolValue((n as f64) >= m)),
+                        (_, _) => Err("Greater than or equal to operator cannot be used with strings".to_string())
                     }
                 },
                 InfixFunction::Concat =>

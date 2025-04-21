@@ -62,7 +62,7 @@ pub enum Token {
     #[regex("True|False", |lex| Some(lex.slice() == "True"))]
     Bool(bool),
 
-    #[regex("\"[^\"]\"|\'[^\']\'", |lex| {let s = lex.slice(); s[1..s.len() - 1].to_string()}) ]
+    #[regex("\"[^\"]*\"|\'[^\']*\'", |lex| {let s = lex.slice(); s[1..s.len() - 1].to_string()}) ]
     Str(String),
 
     #[token("_")]

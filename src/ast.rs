@@ -1,6 +1,6 @@
 #![allow(unused)]
 use std::cmp::{PartialEq, Eq, Ordering, PartialOrd, Ord};
-
+use std::fmt::Display;
 use crate::cell_operations::ValueType;
 pub enum ParserError{
     NumberTooLargeAt(String, u32, u32),
@@ -47,13 +47,20 @@ pub enum Expr {
     Float(f64),
     Cell(Addr),
     Wildcard,
-    Wildcard,
     MonoOp(MonoFunction, Box<Expr>),
     RangeOp{op: RangeFunction, start: Addr, end: Addr, cond: Box<Expr>}, //Note: Should addr be under Box<>?
     InfixOp(Box<Expr>, InfixFunction, Box<Expr>),
     BinOp(BinaryFunction, Box<Expr>, Box<Expr>),
     TernaryOp(TernaryFunction, Box<Expr>, Box<Expr>, Box<Expr>)
 }
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TODO. Virju kaamchor hai.")
+    }
+}
+
+
 pub enum ParentType {
     Single(Addr),
     Range(Addr, Addr),

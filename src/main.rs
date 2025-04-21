@@ -8,13 +8,14 @@ use logos::Logos;
 use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
 use crate::evaluate_operations::evaluate;
 use crate::tokens::LexicalError;
-use std::io::{self, Write};
+use std::io::{self, Write, BufWriter};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp;
 use std::time::Instant;
 use std::fs::File;
-use serde::Serialize;
+// use serde::Serialize;
+use csv::Reader;
 
 //NOTE: PLEASE HAR JAGA usize KAR DO, bohot zyada conversions karne pad rahe hai
 
@@ -62,7 +63,7 @@ fn import_csv(csv_name: &str) -> Result<Sheet, String>
 {
     if let Ok(rdr) = Reader::from_path(csv_name)
     {
-        
+        todo!()
     }
     else 
     {
@@ -80,13 +81,13 @@ fn export_csv(sheet: &Sheet) -> Result<(), String>
         for col in &sheet.data
         {
             csv_data.push(vec![]);
-            if col.borrow() == []
+            if col.borrow().cells.len() == 0
             {
-                for i in 0..sheet.rows
+                for _i in 0..sheet.rows
                 {
                     if let Some(last) = csv_data.last_mut()
                     {
-                        *last.push("<EMPTY>".to_string());
+                        (*last).push("<EMPTY>".to_string());
                     }
                 }
             }
@@ -96,10 +97,10 @@ fn export_csv(sheet: &Sheet) -> Result<(), String>
                 let row: &Vec<Rc<RefCell<Cell>>> = &col.borrow().cells;
                 for i in 0..curr_rows
                 {
-                    let value = Rc::clone(&row[i as usize]).borrow().value;
+                    let value = Rc::clone(&row[i as usize]).borrow().value.clone();
                     if let Some(last) = csv_data.last_mut()
                     {
-                        *last.push(value.to_string());
+                        (*last).push(value.to_string());
                     }
 
                 }
@@ -170,20 +171,33 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings, showfor
 
             if showformulas
             {
-                sheet.expr_at(j, i, settings.formula_width as usize);
+                sheet.expr_at(j as usize, i as usize, settings.formula_width as usize);
             }
             else
             {
-                let val =  sheet.val_at(j as usize, i as usize);
-                match val {
-                    ValueType::BoolValue(b) => print!("{:>width$}", b),
-                    ValueType::IntegerValue(x) => print!("{:>width$}", x),
-                    ValueType::FloatValue(n) => print!("{:>width$}", n),
-                    ValueType::String(s) => print!("{:>width$}", s),
-                }
-
-            }  
-            
+                let colref = sheet.data[j as usize].borrow();
+                if i as usize >= colref.cells.len()
+                {
+                    print!("{:>width$}", "~");
+                    continue
+                } 
+                else
+                {
+                    let cell = colref.cells[i as usize].borrow();
+                    if cell.valid {
+                        let val =  &cell.value;
+                        match val {
+                            ValueType::BoolValue(b) => print!("{:>width$}", b),
+                            ValueType::IntegerValue(x) => print!("{:>width$}", x),
+                            ValueType::FloatValue(n) => print!("{:>width$.2}", n, width = width),
+                            ValueType::String(s) => print!("{:>width$}", s),
+                        }
+                    }
+                    else {
+                        print!("{:>width$}", "~ERR")
+                    }
+                }  
+            }
         }
         println!()
     }
