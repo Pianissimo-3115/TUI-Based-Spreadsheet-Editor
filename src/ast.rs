@@ -100,6 +100,7 @@ impl Expr
                 deps.append(&mut false_expr.get_dependency_list());
                 deps
             }
+            Expr::Wildcard => vec![], 
 
         }
     }

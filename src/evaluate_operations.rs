@@ -4,7 +4,7 @@
 use std::thread;
 use std::time::Duration;
 use crate::ast::{Addr, InfixFunction, Expr, MonoFunction, ParentType, RangeFunction, BinaryFunction, TernaryFunction};
-use crate::cell_operations::{Sheet,Cell,CellFunc,ValueType,Column};
+use crate::cell_operations::{Sheet,Cell,CellFunc,ValueType};
 #[allow(unused_imports)]
 use std::rc::{Rc, Weak};
 #[allow(unused_imports)]
@@ -14,7 +14,7 @@ use std::collections::HashMap;
 fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
     
-    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    // let data = (Rc::clone(&sheets[range.0.sheet as usize])).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
     let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut mini = f64::MAX;
@@ -24,15 +24,22 @@ fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
-            let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
-            let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            // let temp1: std::cell::Ref<'_, Column> = (*data).data[col as usize].borrow();
+            // let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
+            // let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            let cell_rc = {
+                let sheet_ref = sheets[range.0.sheet as usize].borrow();
+                let column_ref = sheet_ref.data[col as usize].borrow();
+                column_ref[row as usize].clone()
+            };
+
+            let temp = cell_rc.borrow();
             if !temp.valid 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = **cond.clone();
-            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_clone = *cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
                 ValueType::BoolValue(b) => b,
@@ -75,7 +82,7 @@ fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
 fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
     
-    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
     let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut maxi = f64::MIN;
@@ -85,15 +92,22 @@ fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
-            let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
-            let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            // let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
+            // let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
+            // let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            let cell_rc = {
+                let sheet_ref = sheets[range.0.sheet as usize].borrow();
+                let column_ref = sheet_ref.data[col as usize].borrow();
+                column_ref[row as usize].clone()
+            };
+
+            let temp = cell_rc.borrow();
             if !temp.valid 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = **cond.clone();
-            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_clone = *cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
                 ValueType::BoolValue(b) => b,
@@ -136,7 +150,7 @@ fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
 fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
     
-    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
     let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut summ = 0 as f64;
@@ -146,15 +160,22 @@ fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
-            let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
-            let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            // let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
+            // let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
+            // let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            let cell_rc = {
+                let sheet_ref = sheets[range.0.sheet as usize].borrow();
+                let column_ref = sheet_ref.data[col as usize].borrow();
+                column_ref[row as usize].clone()
+            };
+
+            let temp = cell_rc.borrow();
             if !temp.valid
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = **cond.clone();
-            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_clone = *cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
                 ValueType::BoolValue(b) => b,
@@ -191,7 +212,7 @@ fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
 fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
     
-    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
     let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut summ = 0 as f64;
@@ -201,15 +222,22 @@ fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
-            let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
-            let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            // let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
+            // let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
+            // let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            let cell_rc = {
+                let sheet_ref = sheets[range.0.sheet as usize].borrow();
+                let column_ref = sheet_ref.data[col as usize].borrow();
+                column_ref[row as usize].clone()
+            };
+
+            let temp = cell_rc.borrow();
             if !temp.valid
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = **cond.clone();
-            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_clone = *cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
                 ValueType::BoolValue(b) => b,
@@ -247,7 +275,7 @@ fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
 
 fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
-    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
     let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut summ = 0 as f64;
@@ -257,15 +285,22 @@ fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1 = data[col as usize].borrow();
-            let temp2 = Rc::clone(&temp1[row as usize]);
-            let temp = temp2.borrow();
+            // let temp1 = data[col as usize].borrow();
+            // let temp2 = Rc::clone(&temp1[row as usize]);
+            // let temp = temp2.borrow();
+            let cell_rc = {
+                let sheet_ref = sheets[range.0.sheet as usize].borrow();
+                let column_ref = sheet_ref.data[col as usize].borrow();
+                column_ref[row as usize].clone()
+            };
+
+            let temp = cell_rc.borrow();
             if !temp.valid 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = **cond.clone();
-            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_clone = *cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
                 ValueType::BoolValue(b) => b,
@@ -300,15 +335,22 @@ fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
 
     for col in cell1.1..=cell2.1 {
         for row in cell1.0..=cell2.0 {
-            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
-            let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
-            let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            // let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
+            // let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
+            // let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            let cell_rc = {
+                let sheet_ref = sheets[range.0.sheet as usize].borrow();
+                let column_ref = sheet_ref.data[col as usize].borrow();
+                column_ref[row as usize].clone()
+            };
+
+            let temp = cell_rc.borrow();
             if !temp.valid
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = **cond.clone();
-            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_clone = *cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
                 ValueType::BoolValue(b) => b,
@@ -340,7 +382,7 @@ fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
 
 fn count_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
 {
-    let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
+    // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
     let cell2: (u32, u32) = (range.1.row, range.1.col);
     let mut count = 0;
@@ -349,15 +391,22 @@ fn count_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
         for row in cell1.0..=cell2.0 
         {
             
-            let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
-            let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
-            let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            // let temp1: std::cell::Ref<'_, Column> = data[col as usize].borrow();
+            // let temp2: Rc<RefCell<Cell>> = Rc::clone(&temp1[row as usize]);
+            // let temp: std::cell::Ref<'_, Cell> = temp2.borrow();
+            let cell_rc = {
+                let sheet_ref = sheets[range.0.sheet as usize].borrow();
+                let column_ref = sheet_ref.data[col as usize].borrow();
+                column_ref[row as usize].clone()
+            };
+
+            let temp = cell_rc.borrow();
             if !temp.valid 
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = **cond.clone();
-            let cond_eval = eval(&cond_clone, sheets, Some(Addr{sheet:range.0.sheet, row, col}))?;
+            let cond_clone = *cond.clone();
+            let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
                 ValueType::BoolValue(b) => b,
@@ -456,7 +505,7 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dep
 } 
 
 
-fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: Option<Addr>) -> Result<ValueType,String> 
+fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr>) -> Result<ValueType,String> 
 {
     match expr 
     {
@@ -531,10 +580,10 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: Option<Addr>
                     //     ValueType::BoolValue(b) => b,
                     //     _ => return Err("Condition should be boolean".to_string())
                     // };
-                    let sheet_index = start.sheet as usize;
-                    let sheet = (*sheets)[sheet_index].borrow().clone();
-                    let range = ((start.row, start.col), (end.row,end.col));
-                    min_eval(&sheet.data, range, cond)
+                    // let sheet_index = start.sheet as usize;
+                    // let sheet = (*sheets)[sheet_index].borrow().clone();
+                    // let range = ((start.row, start.col), (end.row,end.col));
+                    min_eval(sheets, (start.clone(),end.clone()), cond)
                 },
                 RangeFunction::Max => 
                 {
@@ -544,10 +593,11 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: Option<Addr>
                     //     ValueType::BoolValue(b) => b,
                     //     _ => return Err("Condition should be boolean".to_string())
                     // };
-                    let sheet_index = start.sheet as usize;
-                    let sheet = (*sheets)[sheet_index].borrow().clone();
-                    let range = ((start.row, start.col), (end.row,end.col));
-                    max_eval(&sheet.data, range, cond)
+                    // let sheet_index = start.sheet as usize;
+                    // let sheet = (*sheets)[sheet_index].borrow().clone();
+                    // let range = ((start.row, start.col), (end.row,end.col));
+                    // max_eval(&sheet.data, range, cond)
+                    max_eval(sheets, (start.clone(),end.clone()), cond)
                 },
                 RangeFunction::Sum => 
                 {
@@ -557,10 +607,11 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: Option<Addr>
                     //     ValueType::BoolValue(b) => b,
                     //     _ => return Err("Condition should be boolean".to_string())
                     // };
-                    let sheet_index = start.sheet as usize;
-                    let sheet = (*sheets)[sheet_index].borrow().clone();
-                    let range = ((start.row, start.col), (end.row,end.col));
-                    sum_eval(&sheet.data, range, cond)
+                    // let sheet_index = start.sheet as usize;
+                    // let sheet = (*sheets)[sheet_index].borrow().clone();
+                    // let range = ((start.row, start.col), (end.row,end.col));
+                    // sum_eval(&sheet.data, range, cond)
+                    sum_eval(sheets, (start.clone(),end.clone()), cond)
                 },
                 RangeFunction::Avg => 
                 {
@@ -570,10 +621,11 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: Option<Addr>
                     //     ValueType::BoolValue(b) => b,
                     //     _ => return Err("Condition should be boolean".to_string())
                     // };
-                    let sheet_index = start.sheet as usize;
-                    let sheet = (*sheets)[sheet_index].borrow().clone();
-                    let range = ((start.row, start.col), (end.row,end.col));
-                    avg_eval(&sheet.data, range, cond)
+                    // let sheet_index = start.sheet as usize;
+                    // let sheet = (*sheets)[sheet_index].borrow().clone();
+                    // let range = ((start.row, start.col), (end.row,end.col));
+                    // avg_eval(&sheet.data, range, cond)
+                    avg_eval(sheets, (start.clone(),end.clone()), cond)
                 },
                 RangeFunction::Stdev => 
                 {
@@ -583,10 +635,11 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: Option<Addr>
                     //     ValueType::BoolValue(b) => b,
                     //     _ => return Err("Condition should be boolean".to_string())
                     // };
-                    let sheet_index = start.sheet as usize;
-                    let sheet = (*sheets)[sheet_index].borrow().clone();
-                    let range = ((start.row, start.col), (end.row,end.col));
-                    stdev_eval(&sheet.data, range, cond)
+                    // let sheet_index = start.sheet as usize;
+                    // let sheet = (*sheets)[sheet_index].borrow().clone();
+                    // let range = ((start.row, start.col), (end.row,end.col));
+                    // stdev_eval(&sheet.data, range, cond)
+                    stdev_eval(sheets, (start.clone(),end.clone()), cond)
                 },
                 RangeFunction::Count =>
                 {
@@ -596,10 +649,11 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: Option<Addr>
                     //     ValueType::BoolValue(b) => b,
                     //     _ => return Err("Condition should be boolean".to_string())
                     // };
-                    let sheet_index = start.sheet as usize;
-                    let sheet = (*sheets)[sheet_index].borrow().clone();
-                    let range = ((start.row, start.col), (end.row,end.col));
-                    count_eval(&sheet.data, range, cond)
+                    // let sheet_index = start.sheet as usize;
+                    // let sheet = (*sheets)[sheet_index].borrow().clone();
+                    // let range = ((start.row, start.col), (end.row,end.col));
+                    // count_eval(&sheet.data, range, cond)
+                    count_eval(sheets, (start.clone(),end.clone()), cond)
                 }
             }
         }
@@ -1055,7 +1109,7 @@ fn calculate(cell_rc:Rc<RefCell<Cell>>, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Res
         Some(func) =>
         {   
             let expr = &func.expression;
-            let temp = eval(expr, sheets, Option::None);
+            let temp = eval(expr, sheets, &(Option::None));
             if let Err(err) = temp 
             {
                 cell.valid = false;
