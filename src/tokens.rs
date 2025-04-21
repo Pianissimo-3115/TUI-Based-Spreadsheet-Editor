@@ -59,14 +59,20 @@ pub enum Token {
     #[regex("0|[1-9][0-9]*", |lex| lex.slice().parse())]
     Integer(i32),
 
-
     #[regex("True|False", |lex| Some(lex.slice() == "True"))]
     Bool(bool),
+
+    #[regex("\"[^\"]\"|\'[^\']\'", |lex| {let s = lex.slice(); s[1..s.len() - 1].to_string()}) ]
+    Str(String),
+
+    #[token("_")]
+    Wildcard,
   
     #[regex("[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_local_cell(lex.slice()))]
     LocalCell((u32, u32)),
     #[regex("[a-z]+\\.[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_global_cell(lex.slice()))] //NOTE: Sheet names must be lower case in this implementation
     GlobalCell((String, u32, u32)),
+
     #[token("w")]
     MoveUp,
     #[token("a")]
@@ -89,12 +95,42 @@ pub enum Token {
     Stdev,
     #[token("SLEEP")]
     Sleep,
+    #[token("NOT")]
+    Not,
+    #[token("ROUND")]
+    Round,
+    #[token("COUNT")]
+    Count,
+    #[token("IFELSE")]
+    IfElse,
+
     #[token("enable_output")]
     EnableOut,
     #[token("disable_output")]
     DisableOut,
     #[token("scroll_to")]
     ScrollTo,
+
+
+    #[token("==")]
+    OperatorEq,
+    #[token("!=")]
+    OperatorNotEq,
+    
+    #[token(">=")]
+    OperatorGtEq,
+    #[token(">")]
+    OperatorGt,
+    #[token("<=")]
+    OperatorLtEq,
+    #[token("<")]
+    OperatorLt,
+    #[token("&&")] //4
+    OperatorAnd,
+    #[token("||")] //4
+    OperatorOr,
+
+
     #[token("(")]
     LParen,
     #[token(")")]
@@ -102,17 +138,29 @@ pub enum Token {
     #[token("=")]
     Assign,
   
+    #[token("**")]
+    OperatorPow,   //1
+    #[token("//")]
+    OperatorFloorDiv,  //2
+    #[token("%")]
+    OperatorMod,  //2
+
     #[token("+")]
-    OperatorAdd,
+    OperatorAdd, //3
     #[token("-")]
-    OperatorSub,
+    OperatorSub, //3
     #[token("*")]
-    OperatorMul,
+    OperatorMul, //2
     #[token("/")]
-    OperatorDiv,
+    OperatorDiv, //2
+
+    #[token("^")]
+    OperatorConcat,
 
     #[token(":")]
     Colon,
+    #[token(",")]
+    Comma,
 }
 
 //Below is copy paste from lalrpop tutorial:
