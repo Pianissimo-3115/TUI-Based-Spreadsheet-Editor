@@ -1,5 +1,6 @@
 pub mod ast;
-pub mod tokens;
+pub mod tokensexpr;
+pub mod tokenscmds;
 pub mod cell_operations;
 pub mod evaluate_operations;
 use lalrpop_util::lalrpop_mod;
@@ -7,10 +8,11 @@ use lalrpop_util::ParseError;
 use logos::Logos;
 use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
 use crate::evaluate_operations::evaluate;
-use crate::tokens::LexicalError;
+// use crate::tokenscmds;
+// use crate::tokensexpr;
 use std::io::{self, Write, BufWriter};
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref};
 use std::cmp;
 use std::time::Instant;
 use std::fs::File;
@@ -20,31 +22,98 @@ use csv::Reader;
 //NOTE: PLEASE HAR JAGA usize KAR DO, bohot zyada conversions karne pad rahe hai
 
 
-lalrpop_mod!(pub grammar); // include the generated parser
+lalrpop_mod!(pub grammarexpr); // include the generated parser
+lalrpop_mod!(pub grammarcmds); // include the generated parser
 
 /* STUFF TO DO:
 0 - initialise
 0 - ask input
 0 - If error, report respective error, restart
-O - If not error:
+0 - If not error:
     0 - Check required cells:
         0 - If out of range, report error (In extension: Suggest resizing)
         0 - Initialise if not done yet (should now happen automatically)
     0 - Give new function to - cell
-    O - Give old and new function to - evaluate()
-    O - If result is error (loop) then report error.
+    0 - Give old and new function to - evaluate()
+    0 - If result is error (loop) then report error.
 restart
 */
 
-// struct SheetNames {
-//     map: Vec<(String, u32)>
-// }
+pub struct SheetStorage {
+    pub map: Vec<(String, usize)>,
+    pub data: Vec<Rc<RefCell<Sheet>>>   //NOTE: This should be made int Option<Rc<...>>
+}
 
-// impl SheetNames {
-//     fn numFromName(&self, name: str) -> u32 {
-//         for i in 0..self
-//     }
-// }
+impl SheetStorage {
+    pub fn new() -> Self {
+        SheetStorage{
+            map: vec![],
+            data: vec![]
+        }
+    }
+
+    pub fn numFromName(&self, name: &str) -> Option<usize> {
+        for (curr_name, num) in &self.map {
+            if curr_name == name {
+                return Some(*num);
+            }
+        };
+        return None
+    }
+
+    pub fn newSheet(&mut self, name: &str, cols: usize, rows: usize) -> Option<usize> {
+        for (curr_name, _num) in &self.map {
+            if curr_name == name {
+                return None;
+            }
+        };
+        let new_num = self.data.len();
+        let new_sheet_ref = RefCell::new(Sheet::new(new_num as u32, cols as u32, rows as u32));
+        self.data.push(Rc::new(new_sheet_ref));
+        self.map.push((String::from(name), new_num));
+        return Some(new_num)
+    }
+
+    pub fn addSheet(&mut self, name: &str, sheet: Sheet) -> Option<usize> { //Assumes that sheet_idx would be same as data.len()
+        for (curr_name, _num) in &self.map {
+            if curr_name == name {
+                return None;
+            }
+        };
+        let new_num = self.data.len();
+        let new_sheet_ref = RefCell::new(sheet);
+        self.data.push(Rc::new(new_sheet_ref));
+        self.map.push((String::from(name), new_num));
+        return Some(new_num)
+    }
+
+    pub fn removeSheet(&mut self, name: &str) -> Option<usize> {
+
+        for i in 0..self.map.len() {
+            if self.map[i].0 == name {
+                let removed_num = self.map[i].1;
+                self.data[removed_num] = Rc::new(RefCell::new(Sheet::new(999, 0, 0))); //NOTE: This very bad bad fix later
+                self.map.remove(i);
+                return Some(removed_num)
+            }
+        };
+        return None;
+    }
+    pub fn renameSheet(&mut self, name: &str, name_new: &str) -> Option<usize> {
+
+        for i in 0..self.map.len() {
+            if self.map[i].0 == name {
+                let renamed_num = self.map[i].1;
+                if self.numFromName(name_new).is_none() {
+                    self.map[i] = (String::from(name_new), renamed_num);
+                    return Some(renamed_num)
+                } else { return None }
+            }
+        };
+        return None;
+    }
+}
+
 
 struct Settings{
     cell_width: u32,
@@ -59,75 +128,70 @@ impl Settings {
     }
 }
 
-fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
-{
-    if let temp = String::from(csv_name.strip_suffix(".csv"))
-    {}
-    else 
-    {
-        temp = String::from(csv_name);
-    }
-    let csv_data: Vec<Vec<String>> = vec![];
-    if let Ok(rdr) = Reader::from_path(csv_name)
-    {
-        for result in rdr.records()
-        {
-            if let Ok(record) = result
-            {
-                let row = record.iter().map(|s| s.to_string()).collect();
-                csv_data.push(row);
-            }
-            else
-            {
-                return Err("Error reading csv".to_string());
-            }
-        }
-        let mut sheet = Sheet::new(sheet_idx, temp, csv_data[0].len() as u32, csv_data.len() as u32);
-        for row in 0..csv_data.len()
-        {
-            for col in 0..csv_data[0].len()
-            {
-                if csv_data[row][col] == ""
-                {
-                    continue;
-                }
-                let mut cell = cell_operations::Cell::new(ast::Addr{sheet: sheet_idx, row: row as u32, col: col as u32});
-                let raw_val = csv_data[row][col];
-                if let Ok(val) = raw_val.parse::<i32>()
-                {
-                    cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Integer(val)));
-                    cell.valid = true;
-                    cell.value = cell_operations::ValueType::IntegerValue(val);
-                }
-                else if let Ok(val) = raw_val.parse::<f64>()
-                {
-                    cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Float(val)));
-                    cell.valid = true;
-                    cell.value = cell_operations::ValueType::FloatValue(val);
-                }
-                else if let Ok(val) = raw_val.parse::<bool>() {
-                    cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Bool(val)));
-                    cell.valid = true;
-                    cell.value = cell_operations::ValueType::BoolValue(val);
-                } else {
-                    cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::String(raw_val.clone())));
-                    cell.valid = true;
-                    cell.value = cell_operations::ValueType::String(raw_val);
-                }
-                sheet.data[col].borrow_mut().cells[row] = Rc::new(RefCell::new(cell));
-            }
-        }
-    }
-    else 
-    {
-        return Err("Error reading csv".to_string());
-    }
+// fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
+// {
 
-}
+//     let csv_data: Vec<Vec<String>> = vec![];
+//     if let Ok(rdr) = Reader::from_path(csv_name)
+//     {
+//         for result in rdr.records()
+//         {
+//             if let Ok(record) = result
+//             {
+//                 let row = record.iter().map(|s| s.to_string()).collect();
+//                 csv_data.push(row);
+//             }
+//             else
+//             {
+//                 return Err("Error reading csv".to_string());
+//             }
+//         }
+//         let mut sheet = Sheet::new(sheet_idx, csv_data[0].len() as u32, csv_data.len() as u32);
+//         for row in 0..csv_data.len()
+//         {
+//             for col in 0..csv_data[0].len()
+//             {
+//                 if csv_data[row][col] == ""
+//                 {
+//                     continue;
+//                 }
+//                 let mut cell = cell_operations::Cell::new(ast::Addr{sheet: sheet_idx, row: row as u32, col: col as u32});
+//                 let raw_val = csv_data[row][col];
+//                 if let Ok(val) = raw_val.parse::<i32>()
+//                 {
+//                     cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Integer(val)));
+//                     cell.valid = true;
+//                     cell.value = cell_operations::ValueType::IntegerValue(val);
+//                 }
+//                 else if let Ok(val) = raw_val.parse::<f64>()
+//                 {
+//                     cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Float(val)));
+//                     cell.valid = true;
+//                     cell.value = cell_operations::ValueType::FloatValue(val);
+//                 }
+//                 else if let Ok(val) = raw_val.parse::<bool>() {
+//                     cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Bool(val)));
+//                     cell.valid = true;
+//                     cell.value = cell_operations::ValueType::BoolValue(val);
+//                 } else {
+//                     cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::String(raw_val.clone())));
+//                     cell.valid = true;
+//                     cell.value = cell_operations::ValueType::String(raw_val);
+//                 }
+//                 sheet.data[col].borrow_mut().cells[row] = Rc::new(RefCell::new(cell));
+//             }
+//         }
+//     }
+//     else 
+//     {
+//         return Err("Error reading csv".to_string());
+//     }
+//     return Err("Not implemented.".to_string());
+// }
 
-fn export_csv(sheet: &Sheet) -> Result<(), String> 
+fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String> 
 {
-    if let Ok(file) = File::create(sheet.sheet_name.clone() + ".csv")
+    if let Ok(file) = File::create(String::from(name) + ".csv")
     {
         let mut writer = BufWriter::new(file);
         let mut csv_data : Vec<Vec<String>> = vec![];
@@ -211,8 +275,6 @@ fn export_csv(sheet: &Sheet) -> Result<(), String>
     }
 }
 
-
-
 fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings, showformulas: bool)
 {
     let row_max = cmp::min(row+10, sheet.rows);
@@ -287,12 +349,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     // let c: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
 //sheets: &Vec<Rc<RefCell<Sheet>>>
 
-    let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
+    let mut sheetstore = SheetStorage::new();
+    sheetstore.newSheet("sheet0", c as usize, r as usize);
+
+    // let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
 
     let mut exit : bool = false;
 
     let mut curr_col: usize= 0;
     let mut curr_row: usize = 0;
+    let mut curr_sheet_number: usize = 0;
     let mut show_window: bool = true;
     let mut last_err_msg = String::from("ok");
     let settings = Settings::new();
@@ -301,7 +367,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         let mut start = Instant::now();
         if show_window {
             // let curr_sheet = ;
-            display_sheet(curr_col as u32, curr_row as u32, &sheets[0].borrow(),  &settings, false);
+            display_sheet(curr_col as u32, curr_row as u32, &sheetstore.data[curr_sheet_number].borrow(),  &settings, false);
         }
         let mut inp = String::new();
         print!("[{}.0] ", last_time);
@@ -312,42 +378,164 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         .read_line(&mut inp)
         .expect("Failed to read line"); //NOTE (to self): Better error message
 
-        let lexer = tokens::Token::lexer(&inp).spanned()
-        .map(|(token_result, span)| {
-            let token = token_result?; // Propagate LexicalError
-            Ok((span.start, token, span.end)) // (usize, Token, usize)
-        });
-        
-        let parser = grammar::CommandParser::new();
+        let ast;
+        let dep_vec;
 
-        let (ast, dep_vec) = match parser.parse(0, lexer) {  //NOTE: Error messages are temporary.
-            Ok(x) => x,
-            Err(ParseError::User{error: LexicalError::InvalidToken}) => 
-            {
-                last_err_msg = String::from("Invalid Token"); 
-                last_time = 0;
-                continue
-            },
-            Err(ParseError::User{error: LexicalError::InvalidInteger(x)}) => 
-            {   
-                last_err_msg = format!("Invalid Integer {:?}", x); 
-                last_time = 0;
-                continue
-            }, 
-            Err(e) => 
-            {
-                last_err_msg = format!("This error: {:?}", e); 
-                last_time = 0;
-                continue
-            }
-        };
+        if inp.len() == 0 {
+            continue 'mainloop
+        }
+        if inp.chars().next() == Some(':') {
+            let inp_smol = inp.chars().skip(1).collect::<String>();
+            let lexer = tokenscmds::Token::lexer(&inp_smol).spanned()
+            .map(|(token_result, span)| {
+                let token = token_result?; // Propagate LexicalError
+                Ok((span.start, token, span.end)) // (usize, Token, usize)
+            });
+            let parser = grammarcmds::CommandParser::new();
+            (ast, dep_vec) = match parser.parse(curr_sheet_number as u32, &sheetstore, lexer) {  //NOTE: Error messages are temporary.
+                Ok(x) => x,
+                Err(ParseError::User{error: tokenscmds::LexicalError::InvalidToken}) => 
+                {
+                    last_err_msg = String::from("Invalid Token"); 
+                    last_time = 0;
+                    continue
+                },
+                Err(ParseError::User{error: tokenscmds::LexicalError::InvalidInteger(x)}) => 
+                {   
+                    last_err_msg = format!("Invalid Integer {:?}", x); 
+                    last_time = 0;
+                    continue
+                }, 
+                Err(e) => 
+                {
+                    last_err_msg = format!("This error: {:?}", e); 
+                    last_time = 0;
+                    continue
+                }
+            };
+        }
+        else
+        {
+            let lexer = tokensexpr::Token::lexer(&inp).spanned()
+            .map(|(token_result, span)| {
+                let token = token_result?; // Propagate LexicalError
+                Ok((span.start, token, span.end)) // (usize, Token, usize)
+            });
+            let parser = grammarexpr::AssignParser::new();
+            (ast, dep_vec) = match parser.parse(curr_sheet_number as u32, &sheetstore, lexer) {  //NOTE: Error messages are temporary.
+                Ok(x) => x,
+                Err(ParseError::User{error: tokensexpr::LexicalError::InvalidToken}) => 
+                {
+                    last_err_msg = String::from("Invalid Token"); 
+                    last_time = 0;
+                    continue
+                },
+                Err(ParseError::User{error: tokensexpr::LexicalError::InvalidInteger(x)}) => 
+                {   
+                    last_err_msg = format!("Invalid Integer {:?}", x); 
+                    last_time = 0;
+                    continue
+                }, 
+                Err(e) => 
+                {
+                    last_err_msg = format!("This error: {:?}", e); 
+                    last_time = 0;
+                    continue
+                }
+            };
+        }
+
+
         // println!("{:?}", dep_vec);
         // println!("{:?}", ast);
 
 
         match ast {
+            ast::Command::OtherCmd(cmd) => { match cmd {
+                    ast::OtherCommand::AddSheet(s, c, r) => {
+                        let res = sheetstore.newSheet(s.as_str(), c, r);
+                        if res.is_none() {
+                            last_err_msg = format!("Sheet name \"{}\" already exists.", s);
+                        } else { last_err_msg = String::from("ok") }
+                    }
+                    ast::OtherCommand::RemoveSheet(s) => {
+                        let res = sheetstore.removeSheet(s.as_str());
+                        if res.is_none() {
+                            last_err_msg = format!("Sheet name \"{}\" not found.", s);
+                        } else { last_err_msg = String::from("ok") }
+                    }
+                    ast::OtherCommand::RenameSheet(s, snew) => {
+                        let res = sheetstore.renameSheet(s.as_str(), snew.as_str());
+                        if res.is_none() {
+                            last_err_msg = format!("Either Sheet name \"{}\" not found OR Sheet name \"{}\" already exists.", s, snew);
+                        } else { last_err_msg = String::from("ok") }
+                    }
+                    ast::OtherCommand::DuplicateSheet(s, snew_op) => todo!(),
+                    
+                    ast::OtherCommand::ExportCsv(s) => {
+                        let s_num = sheetstore.numFromName(s.as_str());
+                        match s_num {
+                            Some(x) => {
+                                export_csv(&sheetstore.data[x].borrow(), s.as_str());
+                                last_err_msg = String::from("ok");
+                            }
+                            None => last_err_msg = format!("Sheet name \"{}\" not found.", s)
+                        }
+                    }
+                    ast::OtherCommand::LoadCsv(path, opt_s) => todo!(), //{
+                    //     match opt_s {
+                    //         None => {
+                    //             let name_opt = path.strip_suffix(".csv");
+                    //             match name_opt {
+                    //                 Some(name) => {
+                    //                     if sheetstore.numFromName(name).is_none() {
+                    //                         let imp_result = import_csv(&path, sheetstore.data.len() as u32);
+                    //                         match imp_result {
+                    //                             Ok(x) => {
+                    //                                 sheetstore.addSheet(name, x); //Since we have alreayd verified that name does not exist already, this should happen successfully
+                    //                                 last_err_msg = String::from("ok");
+                    //                             },
+                    //                             Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                    //                         }
+                    //                     }
+                    //                     else {
+                    //                         last_err_msg = format!("Sheet name \"{}\" already exist.", name)
+                    //                     }
+                    //                 },
+                    //                 None => last_err_msg = format!("Invalid filepath (does not end in .csv): \"{}\"", path)
+                    //             }
+                    //         },
+                    //         Some(name) => {
+                    //             if sheetstore.numFromName(name.as_str()).is_none() {
+                    //                 let imp_result = import_csv(name.as_str(), sheetstore.data.len() as u32);
+                    //                 match imp_result {
+                    //                     Ok(x) => {
+                    //                         sheetstore.addSheet(name.as_str(), x); //Since we have alreayd verified that name does not exist already, this should happen successfully
+                    //                         last_err_msg = String::from("ok");
+                    //                     },
+                    //                     Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                    //                 }
+                    //             }
+                    //             else {
+                    //                 last_err_msg = format!("Sheet name \"{}\" already exist.", name)
+                    //             };
+                    //         }
+                    //     }
+                    // }
+                    ast::OtherCommand::Resize(s, c, r) => {
+                        match sheetstore.numFromName(s.as_str()) {
+                            Some(sheet_num) => {
+                                sheetstore.data[sheet_num].borrow_mut().resize(r, c);  //NOTE: r aur c ka order har jag asame kar dena chahiye ajeeb lag raha
+                                last_err_msg = String::from("ok");
+                            } 
+                            None => last_err_msg = format!("Sheet name \"{}\" not found.", s)
+                        }
+                    }  
+                };
+                continue
+            }
             ast::Command::DisplayCmd(d_cmd) => {
-                let curr_sheet = &sheets[0].borrow();
+                let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
                 match d_cmd {
                     ast::DisplayCommand::EnableOut => show_window = true,
                     ast::DisplayCommand::DisableOut => show_window = false,
@@ -359,7 +547,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             continue
                         }
                         curr_col = cmp::max(0, cmp::min(addr.col as i64, curr_sheet.columns as i64 - 10)) as usize;
-                        curr_row = cmp::max(0, cmp::min(addr.row as i64, curr_sheet.rows as i64 - 10)) as usize; 
+                        curr_row = cmp::max(0, cmp::min(addr.row as i64, curr_sheet.rows as i64 - 10)) as usize;
+                        curr_sheet_number = addr.sheet as usize;
                     },
 
                     ast::DisplayCommand::MoveUp => curr_row = cmp::max(0, cmp::min(curr_row as i64 -1 , curr_sheet.rows as i64 - 10)) as usize,
@@ -371,7 +560,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
                 let old_func: Option<CellFunc>;
                 {
-                let curr_sheet = &sheets[0].borrow();
+                let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
                 if a.row >= curr_sheet.rows {
                     last_time = 0;
                     last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
@@ -465,7 +654,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             }
             start = Instant::now();
                 // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
-                if let Err(strr) = evaluate(&mut sheets, &a, &old_func)
+                if let Err(strr) = evaluate(&mut sheetstore.data, &a, &old_func)
                 {
                     last_time = start.elapsed().as_secs();
                     last_err_msg = strr;

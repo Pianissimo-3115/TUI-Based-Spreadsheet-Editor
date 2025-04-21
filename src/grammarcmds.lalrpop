@@ -1,0 +1,96 @@
+use crate::tokenscmds::{Token, LexicalError};
+use crate::ast::*;
+use crate::SheetStorage;
+
+grammar(curr_sheet: u32, sheetstore: &SheetStorage);
+
+
+extern {
+  type Location = usize;
+  type Error = LexicalError;
+
+  enum Token {
+    
+    "Ws" => Token::Ws,
+
+    "float" => Token::Float(<f64>),
+    "int" => Token::Integer(<i32>),
+    "bool" => Token::Bool(<bool>),
+    "str" => Token::Str(<String>),
+    "wildcard" => Token::Wildcard,
+
+    "localcell" => Token::LocalCell(<(u32, u32)>),
+    "globalcell" => Token::GlobalCell(<(String, u32, u32)>),
+
+    "MoveUp" => Token::MoveUp,
+    "MoveLeft" => Token::MoveLeft,
+    "MovoDown" => Token::MoveDown,
+    "MoveRight" => Token::MoveRight,
+    "Quit" => Token::Quit,
+
+    "EnableOut" => Token::EnableOut,
+    "DisableOut" => Token::DisableOut,
+    "ScrollTo" => Token::ScrollTo,
+
+    "LoadCsv" => Token::LoadCsv,
+    "ExportCsv" => Token::ExportCsv,
+    "Resize" => Token::Resize,
+
+    "AddSheet" => Token::AddSheet,
+    "RemoveSheet" => Token::RemoveSheet,
+    "RenameSheet" => Token::RenameSheet,
+    "DuplicateSheet" => Token::DuplicateSheet,
+  }
+}
+
+pub Command: (Command, Vec<ParentType>) = {
+    <c_v: DisplayCommand> => {
+        let (c, v) = c_v;
+        (Command::DisplayCmd(c), v)},
+    <c_v: OtherCommand> => {
+        let (c, v) = c_v;
+        (Command::OtherCmd(c), v)},
+    "Quit" => (Command::Quit, vec![]),
+}
+
+
+Addr: Addr = {
+    <cr: "localcell"> => { 
+        let (col, row) = cr;
+        Addr{sheet: curr_sheet, col, row} },  //NOTE: Why am I doing Box::new everywhere?. Also, how come tokens returns Option<_> but stufff is working?!?
+    <scr: "globalcell"> => { 
+        let (sheet, col, row) = scr;
+        let sheet_num_opt = sheetstore.numFromName(&sheet);
+        let Some(sheet_num) = sheet_num_opt else { todo!() };
+        Addr{sheet: sheet_num as u32, col, row} 
+        },  
+}
+
+
+DisplayCommand: (DisplayCommand, Vec<ParentType>) = {
+    "EnableOut" => (DisplayCommand::EnableOut, vec![]),
+    "DisableOut" => (DisplayCommand::DisableOut, vec![]),
+    "ScrollTo" Ws <a: Addr> => (DisplayCommand::ScrollTo(a.clone()), vec![ParentType::Single(a)]), // NOTE: This means that scroll_toA45 will also work (space is not enforced) ("scroll_to    AAA3" will(should?) also work, vec![]))
+    "MoveUp" => (DisplayCommand::MoveUp, vec![]),
+    "MoveLeft" => (DisplayCommand::MoveLeft, vec![]),
+    "MovoDown" => (DisplayCommand::MoveDown, vec![]),
+    "MoveRight" => (DisplayCommand::MoveRight, vec![]),
+} 
+
+OtherCommand: (OtherCommand, Vec<ParentType>) = {
+    "LoadCsv" Ws <s1: "str"> Ws <s2: "str">=> (OtherCommand::LoadCsv(s1, Some(s2)), vec![]),
+    "LoadCsv" Ws <s: "str"> => (OtherCommand::LoadCsv(s, None), vec![]),
+    "ExportCsv" Ws <s: "str"> => (OtherCommand::ExportCsv(s), vec![]),
+    "Resize" Ws <s: "str"> Ws <c: "int"> Ws <r: "int"> => (OtherCommand::Resize(s, c.try_into().unwrap(), r.try_into().unwrap()), vec![]),
+
+    "AddSheet" Ws <s: "str"> Ws <c: "int"> Ws <r: "int">=> (OtherCommand::AddSheet(s, c.try_into().unwrap(), r.try_into().unwrap()), vec![]),
+    "RemoveSheet" Ws <s1: "str"> => (OtherCommand::RemoveSheet(s1), vec![]),
+    "RenameSheet" Ws <s1: "str"> Ws <s2: "str"> => (OtherCommand::RenameSheet(s1, s2), vec![]),
+    "DuplicateSheet" Ws <s1: "str"> Ws <s2: "str"> => (OtherCommand::DuplicateSheet(s1, Some(s2)), vec![]),
+    "DuplicateSheet" Ws <s1: "str"> => (OtherCommand::DuplicateSheet(s1, None), vec![]),
+} 
+
+Ws: () = {
+    "Ws" => ()
+}
+

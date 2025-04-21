@@ -190,19 +190,17 @@ pub struct Sheet
     pub rows: u32,
     pub columns: u32,
     pub sheet_idx: u32,
-    pub sheet_name: String
 }
 impl Sheet
 {
-    pub fn new(sheet_idx: u32, sheet_name: String, cols: u32, rows: u32) -> Self 
+    pub fn new(sheet_idx: u32, cols: u32, rows: u32) -> Self 
     {
         let mut s = Sheet 
         {
             data: vec![], //NOTE: Empty vector new se banana chahiye?
             rows: 0, //Number of rows in each column
             columns: 0, //Number of columns
-            sheet_idx,
-            sheet_name
+            sheet_idx
         };
         s.resize(rows as usize, cols as usize);  //NOTE: Ye u32 and usize wali cheez sort kar lena please
         s
