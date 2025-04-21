@@ -459,10 +459,10 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dep
                 let sheet = sheet_ref.borrow();
 
                 let column_ref = &sheet.data[col as usize];
-                let column = column_ref.borrow_mut();
+                let column = column_ref.borrow();
 
                 let cell_rc = Rc::clone(&column[row as usize]);
-                drop(column);
+                // drop(column);
                 let mut parent_cell = cell_rc.borrow_mut();
                 // let temp1 = (*sheets)[sheet_num as usize].borrow();
                 // let sheet = Rc::clone(&temp1);
@@ -489,7 +489,8 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dep
                         let sheet = sheet_ref.borrow();
 
                         let column_ref = &sheet.data[i as usize];
-                        let column = column_ref.borrow_mut();
+                        // let column = column_ref.borrow_mut();
+                        let column = column_ref.borrow();
 
                         let cell_rc = Rc::clone(& column[j as usize]);
                         drop(column);
@@ -523,9 +524,9 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
             let sheet_ref =&(*sheets)[sheet_num as usize];
             let sheet = sheet_ref.borrow();
             let column_ref = &sheet.data[col as usize];
-            let column = column_ref.borrow_mut();
+            let column = column_ref.borrow();
             let cell_rc = Rc::clone(&column[row as usize]);
-            drop(column);
+            // drop(column);
             let parent_cell = cell_rc.borrow();
             if !parent_cell.valid 
             {
@@ -1098,9 +1099,9 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                     let sheet_ref =&(*sheets)[sheet_num as usize];
                     let sheet = sheet_ref.borrow();
                     let column_ref = &sheet.data[col as usize];
-                    let column = column_ref.borrow_mut();
+                    let column = column_ref.borrow();
                     let cell_rc = Rc::clone(&column[row as usize]);
-                    drop(column);
+                    // drop(column);
                     let parent_cell = cell_rc.borrow();
                     Ok(parent_cell.value.clone())
                 }
@@ -1168,7 +1169,7 @@ fn update_parent_avls(cell:&Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependen
                 let sheet = sheet_ref.borrow();
 
                 let column_ref = &sheet.data[addr.col as usize];
-                let column = column_ref.borrow_mut();
+                let column = column_ref.borrow();
 
                 let cell_rc = Rc::clone(&column[addr.row as usize]);
                 drop(column);
@@ -1192,10 +1193,10 @@ fn update_parent_avls(cell:&Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependen
                         let sheet = sheet_ref.borrow();
 
                         let column_ref = &sheet.data[i as usize];
-                        let column = column_ref.borrow_mut();
+                        let column = column_ref.borrow();
 
                         let cell_rc = Rc::clone(&column[j as usize]);
-                        drop(column);
+                        // drop(column);
                         let mut parent_cell = cell_rc.borrow_mut();
                         parent_cell.children.insert((cell).clone());
                         drop(parent_cell);
@@ -1217,10 +1218,10 @@ fn dfs(sheets: &Vec<Rc<RefCell<Sheet>>>,current_cell: &Addr, visited: &mut HashM
     let sheet = sheet_ref.borrow();
 
     let column_ref = &sheet.data[current_cell.col as usize];
-    let column = column_ref.borrow_mut();
+    let column = column_ref.borrow();
 
     let cell_rc = Rc::clone(&column[current_cell.row as usize]);
-    drop(column);
+    // drop(column);
     let curr_cell = cell_rc.borrow();
 
     let ordered_set = curr_cell.children.clone();
@@ -1265,7 +1266,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
         let sheet = sheet_ref.borrow();
 
         let column_ref = &sheet.data[i.col as usize];
-        let column = column_ref.borrow_mut();
+        let column = column_ref.borrow();
 
         let cell_rc = Rc::clone(& column[i.row as usize]);
         drop(column);
@@ -1297,7 +1298,7 @@ pub fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Op
         let sheet_ref = &(*sheets)[cell.sheet as usize];
         let sheet = sheet_ref.borrow();
         let column_ref = &sheet.data[cell.col as usize];
-        let column = column_ref.borrow_mut();
+        let column = column_ref.borrow();
         Rc::clone(&column[cell.row as usize])
         // drop(column);
     };
