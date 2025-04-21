@@ -3,7 +3,7 @@
 use crate::ast::{Expr, Addr};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 // #[allow(unused_imports)]
 use std::rc::Rc;
 
@@ -12,7 +12,6 @@ use std::rc::Rc;
 #[derive(Debug, Clone)]
 pub enum ValueType 
 {
-    BoolValue(bool),
     IntegerValue(i32),
     FloatValue(f64),
     String(String),
@@ -23,7 +22,6 @@ impl std::fmt::Display for ValueType
     {
         match self 
         {
-            ValueType::BoolValue(b) => write!(f, "{}", b),
             ValueType::IntegerValue(n) => write!(f, "{}", n),
             ValueType::FloatValue(n) => write!(f, "{}", n),
             ValueType::String(s) => write!(f, "{}", s),

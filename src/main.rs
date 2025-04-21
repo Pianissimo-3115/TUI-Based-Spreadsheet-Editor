@@ -12,7 +12,6 @@ use std::io::{self, Write};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp;
-use std::time::Instant;
 
 
 //NOTE: PLEASE HAR JAGA usize KAR DO, bohot zyada conversions karne pad rahe hai
@@ -44,23 +43,13 @@ restart
 //     }
 // }
 
-struct Settings{
-    cell_width: u32,
-}
-impl Settings {
-    fn new() -> Self {
-        Settings{
-            cell_width: 9,
-        }
-    }
-}
 
 
-fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings)
+fn display_sheet(col: u32, row: u32, sheet: &Sheet)
 {
     let row_max = cmp::min(row+10, sheet.rows);
     let col_max = cmp::min(col+10, sheet.columns);
-    let width = settings.cell_width as usize;
+
     print!("      ");
     for i in col..col_max {
         let mut curr = String::new();
@@ -73,18 +62,17 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings)
             curr_col -= 1;
             curr_col /= 26;
         }
-        print!("{:>width$}", curr.chars().rev().collect::<String>());
+        print!("{:>6}", curr.chars().rev().collect::<String>());
     }
     println!();
     for i in row..row_max {
-        print!("{:>width$}", i+1);
+        print!("{:>6}", i+1);
         for j in col..col_max {
             let val =  sheet.val_at(j as usize, i as usize);
             match val {
-                ValueType::BoolValue(b) => print!("{:>width$}", b),
-                ValueType::IntegerValue(x) => print!("{:>width$}", x),
-                ValueType::FloatValue(n) => print!("{:>width$}", n),
-                ValueType::String(s) => print!("{:>width$}", s),
+                ValueType::IntegerValue(x) => print!("{:>6}", x),
+                ValueType::FloatValue(n) => print!("{:>6}", n),
+                ValueType::String(s) => print!("{:>6}", s),
             }
             
         }
@@ -115,16 +103,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut curr_row: usize = 0;
     let mut show_window: bool = true;
     let mut last_err_msg = String::from("ok");
-    let settings = Settings::new();
-    let mut last_time = 0;
+    
     'mainloop: while !exit {
-        let mut start = Instant::now();
         if show_window {
             // let curr_sheet = ;
-            display_sheet(curr_col as u32, curr_row as u32, &sheets[0].borrow(),  &settings);
+            display_sheet(curr_col as u32, curr_row as u32, &sheets[0].borrow());
         }
         let mut inp = String::new();
-        print!("[{}.0] ", last_time);
+
         print!("({}) >> ", last_err_msg);
         io::stdout().flush().unwrap();
 
@@ -142,24 +128,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
         let (ast, dep_vec) = match parser.parse(0, lexer) {  //NOTE: Error messages are temporary.
             Ok(x) => x,
-            Err(ParseError::User{error: LexicalError::InvalidToken}) => 
-            {
-                last_err_msg = String::from("Invalid Token"); 
-                last_time = 0;
-                continue
-            },
-            Err(ParseError::User{error: LexicalError::InvalidInteger(x)}) => 
-            {   
-                last_err_msg = format!("Invalid Integer {:?}", x); 
-                last_time = 0;
-                continue
-            }, 
-            Err(e) => 
-            {
-                last_err_msg = format!("This error: {:?}", e); 
-                last_time = 0;
-                continue
-            }
+            Err(ParseError::User{error: LexicalError::InvalidToken}) => {last_err_msg = String::from("Invalid Token"); continue},
+            Err(ParseError::User{error: LexicalError::InvalidInteger(x)}) => {last_err_msg = format!("Invalid Integer {:?}", x); continue}, 
+            Err(e) => {last_err_msg = format!("This error: {:?}", e); continue}
         };
         // println!("{:?}", dep_vec);
         // println!("{:?}", ast);
@@ -174,7 +145,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     ast::DisplayCommand::ScrollTo(addr) => 
                     {
                         if (addr.row >= curr_sheet.rows) | (addr.col >= curr_sheet.columns) {
-                            last_time = 0;
                             last_err_msg = String::from("Address out of bounds");
                             continue
                         }
@@ -193,12 +163,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 {
                 let curr_sheet = &sheets[0].borrow();
                 if a.row >= curr_sheet.rows {
-                    last_time = 0;
                     last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
                     continue 'mainloop;
                 }
                 if a.col >= curr_sheet.columns {
-                    last_time = 0;
                     last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
                     continue 'mainloop;
                 }
@@ -214,12 +182,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     match dep {
                         ast::ParentType::Single(a_1) => {
                             if a_1.row >= curr_sheet.rows {
-                                last_time = 0;
                                 last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
                             if a_1.col >= curr_sheet.columns {
-                                last_time = 0;
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
@@ -233,32 +199,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         },
                         ast::ParentType::Range(a_1, a_2) => {
                             if a_1.row >= curr_sheet.rows {
-                                last_time = 0;
                                 last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
                             if a_1.col >= curr_sheet.columns {
-                                last_time = 0;
                                 last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
                             if a_2.row >= curr_sheet.rows {
-                                last_time = 0;
                                 last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
                             if a_2.col >= curr_sheet.columns {
-                                last_time = 0;
                                 last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
                             if a_1.col > a_2.col {
-                                last_time = 0;
                                 last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
                             if a_1.row > a_2.row {
-                                last_time = 0;
                                 last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
@@ -283,11 +243,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 drop(target_cell_ref);
 
             }
-            start = Instant::now();
                 // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
                 if let Err(strr) = evaluate(&mut sheets, &a, &old_func)
                 {
-                    last_time = start.elapsed().as_secs();
                     last_err_msg = strr;
                     continue 'mainloop;
                     
@@ -295,7 +253,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             }
 
         }
-        last_time = start.elapsed().as_secs();
+        
         last_err_msg = String::from("ok");
     }
 

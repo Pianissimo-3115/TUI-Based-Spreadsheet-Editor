@@ -41,17 +41,12 @@ pub enum DisplayCommand {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Bool(bool),
-    String(String),
     Integer(i32),
     Float(f64),
     Cell(Addr),
-    Wildcard,
     MonoOp(MonoFunction, Box<Expr>),
-    RangeOp{op: RangeFunction, start: Addr, end: Addr, cond: Box<Expr>}, //Note: Should addr be under Box<>?
-    InfixOp(Box<Expr>, InfixFunction, Box<Expr>),
-    BinOp(BinaryFunction, Box<Expr>, Box<Expr>),
-    TernaryOp(TernaryFunction, Box<Expr>, Box<Expr>, Box<Expr>)
+    RangeOp{op: RangeFunction, start: Addr, end: Addr}, //Note: Should addr be under Box<>?
+    BinOp(Box<Expr>, BinaryFunction, Box<Expr>),
 }
 pub enum ParentType {
     Single(Addr),
@@ -78,30 +73,15 @@ impl Expr
         match self 
         {
             Expr::Integer(_) => vec![],
-            Expr::String(_) => vec![],
-            Expr::Bool(_) => vec![],
             Expr::Float(_) => vec![],
             Expr::Cell(addr) => vec![ParentType::Single(addr.clone())],
             Expr::MonoOp(_, expr) => expr.get_dependency_list(),
             Expr::RangeOp{start, end, ..} => vec![ParentType::Range(start.clone(), end.clone())],
-            Expr::InfixOp(left, _, right) => {
+            Expr::BinOp(left, _, right) => {
                 let mut deps = left.get_dependency_list();
                 deps.append(&mut right.get_dependency_list());
                 deps
             }
-            Expr::BinOp(_, left, right) => {
-                let mut deps = left.get_dependency_list();
-                deps.append(&mut right.get_dependency_list());
-                deps
-            }
-            Expr::TernaryOp(_, cond, true_expr, false_expr) => {
-                let mut deps = cond.get_dependency_list();
-                deps.append(&mut true_expr.get_dependency_list());
-                deps.append(&mut false_expr.get_dependency_list());
-                deps
-            }
-            Expr::Wildcard => vec![], 
-
         }
     }
 
@@ -143,7 +123,6 @@ impl Ord for Addr {
 #[derive(Debug, Clone)]
 pub enum MonoFunction {
     Sleep,
-    Not,
 }
 
 #[derive(Debug, Clone)]
@@ -153,38 +132,12 @@ pub enum RangeFunction {
     Max,
     Min,
     Stdev,
-    Count
 }
 
 #[derive(Debug, Clone)]
 pub enum BinaryFunction {
-    Round
-}
-
-#[derive(Debug, Clone)]
-pub enum TernaryFunction {
-    IfThenElse
-}
-
-#[derive(Debug, Clone)]
-pub enum InfixFunction {
     Mul,
     Div,
     Add,
     Sub,
-    Pow,
-    FloorDiv,
-    Mod,
-
-    Eq,
-    Neq,
-    Gt,
-    Gte,
-    Lt,
-    Lte,
-    And,
-    Or,
-    // Not,
-    
-    Concat,
 }

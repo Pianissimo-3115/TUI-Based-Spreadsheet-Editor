@@ -5,10 +5,8 @@ use logos::Logos;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum LexicalError {
     InvalidInteger(ParseIntError),
-    InternalError(String),
     #[default]
     InvalidToken,
-    
 }
 
 impl From<ParseIntError> for LexicalError {
@@ -52,17 +50,8 @@ pub enum Token {
 
     // #[regex("[ \t]+")]
     // Ws,  //Ws stands for whitespace
-    #[regex(r"(0|[1-9][0-9]*)\.[0-9]+([eE][-+]?[0-9]+)?", |lex| lex.slice().parse().ok())]
-    #[regex("(0|[1-9][0-9]*)[eE][-+]?[0-9]+", |lex| lex.slice().parse().ok())]
-    Float(f64),
-
     #[regex("0|[1-9][0-9]*", |lex| lex.slice().parse())]
     Integer(i32),
-
-
-    #[regex("True|False", |lex| Some(lex.slice() == "True"))]
-    Bool(bool),
-  
     #[regex("[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_local_cell(lex.slice()))]
     LocalCell((u32, u32)),
     #[regex("[a-z]+\\.[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_global_cell(lex.slice()))] //NOTE: Sheet names must be lower case in this implementation
