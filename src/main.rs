@@ -59,11 +59,64 @@ impl Settings {
     }
 }
 
-fn import_csv(csv_name: &str) -> Result<Sheet, String>
+fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
 {
+    if let temp = String::from(csv_name.strip_suffix(".csv"))
+    {}
+    else 
+    {
+        temp = String::from(csv_name);
+    }
+    let csv_data: Vec<Vec<String>> = vec![];
     if let Ok(rdr) = Reader::from_path(csv_name)
     {
-        todo!()
+        for result in rdr.records()
+        {
+            if let Ok(record) = result
+            {
+                let row = record.iter().map(|s| s.to_string()).collect();
+                csv_data.push(row);
+            }
+            else
+            {
+                return Err("Error reading csv".to_string());
+            }
+        }
+        let mut sheet = Sheet::new(sheet_idx, temp, csv_data[0].len() as u32, csv_data.len() as u32);
+        for row in 0..csv_data.len()
+        {
+            for col in 0..csv_data[0].len()
+            {
+                if csv_data[row][col] == ""
+                {
+                    continue;
+                }
+                let mut cell = cell_operations::Cell::new(ast::Addr{sheet: sheet_idx, row: row as u32, col: col as u32});
+                let raw_val = csv_data[row][col];
+                if let Ok(val) = raw_val.parse::<i32>()
+                {
+                    cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Integer(val)));
+                    cell.valid = true;
+                    cell.value = cell_operations::ValueType::IntegerValue(val);
+                }
+                else if let Ok(val) = raw_val.parse::<f64>()
+                {
+                    cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Float(val)));
+                    cell.valid = true;
+                    cell.value = cell_operations::ValueType::FloatValue(val);
+                }
+                else if let Ok(val) = raw_val.parse::<bool>() {
+                    cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::Bool(val)));
+                    cell.valid = true;
+                    cell.value = cell_operations::ValueType::BoolValue(val);
+                } else {
+                    cell.cell_func = Some(cell_operations::CellFunc::new(ast::Expr::String(raw_val.clone())));
+                    cell.valid = true;
+                    cell.value = cell_operations::ValueType::String(raw_val);
+                }
+                sheet.data[col].borrow_mut().cells[row] = Rc::new(RefCell::new(cell));
+            }
+        }
     }
     else 
     {
@@ -104,12 +157,28 @@ fn export_csv(sheet: &Sheet) -> Result<(), String>
                     }
 
                 }
+                for _i in curr_rows..sheet.rows as usize
+                {
+                    if let Some(last) = csv_data.last_mut()
+                    {
+                        (*last).push("<EMPTY>".to_string());
+                    }
+                }
             }
         }
         for row in 0..csv_data[0].len()
         {
             for col in 0..csv_data.len()
             {
+                if csv_data[col][row] == "<EMPTY>"
+                {
+                    if let Ok(()) = write!(writer, "{}", "")
+                    {}
+                    else 
+                    {
+                        return Err("Error in writing csv".to_string());
+                    }
+                }
                 if let Ok(()) = write!(writer, "{}", csv_data[col][row])
                 {}
                 else 
