@@ -63,6 +63,15 @@ impl SheetStorage {
         return None
     }
 
+    pub fn NameFromNum(&self, num: usize) -> Option<&String> {
+        for (curr_name, number) in &self.map {
+            if number == &num {
+                return Some(curr_name);
+            }
+        };
+        return None
+    }
+
     pub fn newSheet(&mut self, name: &str, cols: usize, rows: usize) -> Option<usize> {
         for (curr_name, _num) in &self.map {
             if curr_name == name {
@@ -119,13 +128,15 @@ impl SheetStorage {
 
 struct Settings{
     cell_width: u32,
-    formula_width: u32
+    formula_width: u32,
+    undo_history_limit: u32
 }
 impl Settings {
     fn new() -> Self {
         Settings{
             cell_width: 9,
-            formula_width: 15
+            formula_width: 15,
+            undo_history_limit: 10
         }
     }
 }
@@ -501,7 +512,8 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
     if let ValueType::IntegerValue(0) = cell1.value
     {
         return Err("GP cannot start with Integral Value".to_string());
-    }if let ValueType::FloatValue(0.) = cell1.value
+    }
+    if let ValueType::FloatValue(0.) = cell1.value
     {
         return Err("GP cannot start with Float Value 0".to_string());
     }
@@ -569,7 +581,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
         {
             (ValueType::IntegerValue(val1), ValueType::IntegerValue(val2)) =>
             {
-                let common_diff = val2-val1;
+                let common_diff = val2 as f64/val1 as f64;
                 for col in start_addr.col+2..= end_addr.col
                 {
                     
@@ -577,24 +589,24 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::IntegerValue(val1 + common_diff*(col-start_addr.col) as i32);
+                    cell3.value = ValueType::FloatValue(val1 as f64 * (common_diff).powf((col-start_addr.col) as f64));
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
             {
-                let common_diff = val2-val1 as f64;
+                let common_diff = val2/val1 as f64;
                 for col in start_addr.row+2..= end_addr.row
                 {
                     let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 as f64 + common_diff*(col-start_addr.col) as f64);
+                    cell3.value = ValueType::FloatValue(val1 as f64 * (common_diff).powf((col-start_addr.col)as f64));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
             {
-                let common_diff = val2-val1;
+                let common_diff = val2/val1;
                 for col in start_addr.col+2..= end_addr.col
                 {
                     
@@ -602,7 +614,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 + common_diff*(col-start_addr.col) as f64);
+                    cell3.value = ValueType::FloatValue(val1* common_diff.powf((col-start_addr.col) as f64));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -615,7 +627,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 + common_diff*(col-start_addr.col) as f64);
+                    cell3.value = ValueType::FloatValue(val1 as f64 * common_diff.powf((col-start_addr.col) as f64));
                 }
             }
             (_,_) =>
@@ -631,8 +643,121 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
     Ok(())
 }
 
+fn invalidate_children(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell_addr: Addr)       // isko correct karo
+{
+    let mut temp;
+    let mut temp1 = &sheets.get(cell_addr.sheet as usize);
+    if let None = temp1
+    {
+        return ();
+    }
+    else 
+    {
+        temp = temp1.unwrap();
+    }
+    let sheet_ref = Rc::clone(temp);
+    let sheet = sheet_ref.borrow();
+    let column_ref: RefCell<cell_operations::Column> = sheet.data[cell_addr.col as usize];
+    // let column_ref  = &sheet.data.get(cell.addr.col as usize);
+    let column = column_ref.borrow();
+    temp1 = &column.cells.get(cell_addr.row as usize);
+    if let None = temp1
+    {
+        return ();
+    }
+    else 
+    {
+        temp = temp1.unwrap();
+    }
+    let cell_ref = Rc::clone(temp);
+    let mut cell = cell_ref.borrow_mut();
+    for child_addr in &cell.children.iter()
+    {
+        temp1 = &sheets.get(child_addr.sheet as usize);
+        if let None = temp1
+        {
+            return ();
+        }
+        else 
+        {
+            temp = temp1.unwrap();
+        }
+        let new_sheet_ref = Rc::clone(temp);
+        let new_sheet = new_sheet_ref.borrow();
+        let new_column_ref = new_sheet.data[child_addr.col as usize];
+        let new_column = new_column_ref.borrow();
+        temp1 = &new_column.cells.get(child_addr.row as usize);
+        if let None = temp1
+        {
+            return ();
+        }
+        else 
+        {
+            temp = temp1.unwrap();
+        }
+        let new_cell_ref = Rc::clone(temp);
+        let mut new_cell = new_cell_ref.borrow_mut();
+        new_cell.valid = false;
+    }  
+}
 
-fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sheet_name: String) -> Result<(),String>  // sheet_number and sheet_name correspond to the old sheet that has been copied
+
+fn undo(sheets: &mut Vec<Rc<RefCell<Sheet>>>,history: &Vec<(Addr, Option<CellFunc> /* old func */, Option<CellFunc> /* new func */)>, index: u32) -> Result<CellFunc,String>
+{
+    if index == 0
+    {
+        return Err("Already at the oldest change".to_string());
+    }
+    assert!(index < history.len() as u32);
+    let (addr, old_func, new_func) = history[index as usize].clone();
+    let sheet_ref = &sheets[addr.sheet as usize];
+    let sheet = sheet_ref.borrow();
+    let column_ref = &sheet.data[addr.col as usize];
+    let column = column_ref.borrow();
+    let cell_rc = Rc::clone(&column[addr.row as usize]);
+    // drop(column);
+    let mut cell = cell_rc.borrow_mut();
+    let old_function = new_func.clone();
+    if let Some(func) = old_func
+    {
+        cell.cell_func = Some(func);
+    }
+    else
+    {
+        cell.cell_func = None;
+    }
+    Ok(old_function)
+}
+fn redo(sheets: &mut Vec<Rc<RefCell<Sheet>>>, history: &Vec<(Addr, Option<CellFunc>, Option<CellFunc>)>, index: u32) -> Result<CellFunc,String>
+{
+    if index == history.len() as u32 - 1
+    {
+        return Err("Already at the latest change".to_string());
+    }
+    assert!(index < history.len() as u32);
+    let (addr, old_func, new_func) = history[index as usize].clone();
+    let sheet_ref = &sheets[addr.sheet as usize];
+    let sheet = sheet_ref.borrow();
+    let column_ref = &sheet.data[addr.col as usize];
+    let column = column_ref.borrow();
+    let cell_rc = Rc::clone(&column[addr.row as usize]);
+    // drop(column);
+    let mut cell = cell_rc.borrow_mut();
+    let old_function = old_func;
+    if let Some(func) = new_func
+    {
+        cell.cell_func = Some(func);
+    }
+    else
+    {
+        cell.cell_func = None;
+    }
+    Ok(old_function)
+}
+
+
+
+fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sheet_name: String) -> Result<Sheet,String>  // sheet_number and sheet_name correspond to the old sheet that has been copied
 {
     if sheet_number >= sheets.len()
     {
@@ -729,7 +854,9 @@ fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sh
             
         }
     }
-    Ok(())
+    // sheets.push(Rc::new(RefCell::new(new_sheet)));
+    Ok(new_sheet)
+
 }
 
 fn update_cell_func(exp: Expr, sheet_num: u32, sheet_idx: u32) -> Expr
@@ -891,6 +1018,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut last_err_msg = String::from("ok");
     let settings = Settings::new();
     let mut last_time = 0;
+
+    let mut history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
+    let mut history_index: u32 = 0;
+
     'mainloop: while !exit {
         let mut start = Instant::now();
         if show_window {
@@ -977,16 +1108,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         // println!("{:?}", dep_vec);
         // println!("{:?}", ast);
 
-
+        start = Instant::now();
         match ast {
             ast::Command::OtherCmd(cmd) => { match cmd {
                     ast::OtherCommand::AddSheet(s, c, r) => {
                         let res = sheetstore.newSheet(s.as_str(), c, r);
                         if res.is_none() {
                             last_err_msg = format!("Sheet name \"{}\" already exists.", s);
-                        } else { last_err_msg = String::from("ok") }
+                        }
+                        else { last_err_msg = String::from("ok") }
                     }
                     ast::OtherCommand::RemoveSheet(s) => {
+                        if let Some(sheet_num) = sheetstore.numFromName(s.as_str())
+                        {
+                            let sheet_ref = &sheetstore.data[sheet_num as usize];
+                            let sheet = sheet_ref.borrow();
+                            let num_rows = sheet.rows;
+                            let num_cols = sheet.columns;
+                            for i in 0..num_cols
+                            {
+                                let column_ref = &sheet.data[i as usize];
+                                let column = column_ref.borrow();
+                                for j in 0..num_rows
+                                {
+                                    let cell_rc = Rc::clone(&column.cells[j as usize]);
+                                    let mut cell = cell_rc.borrow_mut();
+                                    invalidate_children(&mut sheetstore.data, cell.addr.clone());
+                                    cell.children.clear();
+                                }
+                            }
+                        }
                         let res = sheetstore.removeSheet(s.as_str());
                         if res.is_none() {
                             last_err_msg = format!("Sheet name \"{}\" not found.", s);
@@ -998,8 +1149,78 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             last_err_msg = format!("Either Sheet name \"{}\" not found OR Sheet name \"{}\" already exists.", s, snew);
                         } else { last_err_msg = String::from("ok") }
                     }
-                    ast::OtherCommand::DuplicateSheet(s, snew_op) => todo!(),
-                    
+                    ast::OtherCommand::DuplicateSheet(s, snew_op) => 
+                    {
+                        let snew = match snew_op {
+                            Some(x) => x,
+                            None => format!("{}-copy", s)
+                        };
+                        let res = sheetstore.numFromName(s.as_str());
+                        if res.is_none() 
+                        {
+                            last_err_msg = format!("Sheet name \"{}\" not found.", s);
+                        } 
+                        else 
+                        {
+                            let sheet_num = res.unwrap() as usize;
+                            let res2 = duplicate_sheet(&mut sheetstore.data, sheet_num, snew.clone());
+                            if let Ok(new_sheet) = res2 
+                            {
+                                last_err_msg = String::from("ok");
+                                // sheetstore.renameSheet(s.as_str(), &snew).unwrap();
+                                sheetstore.addSheet(snew.as_str(), new_sheet); 
+                            } 
+                            else 
+                            {
+                                last_err_msg = format!("Error occured during duplication: {}", res2.err().unwrap())
+                            }
+                        }
+                    },
+                    ast::OtherCommand::Undo =>
+                    {
+
+                        match undo(&mut sheetstore.data, &history, history_index)
+                        {
+                            Ok(old_function) =>
+                            {
+                                history_index-=1;
+                                start = Instant::now();
+                                // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
+                                if let Err(strr) = evaluate(&mut sheetstore.data, &a, &old_function)
+                                {
+                                    last_time = start.elapsed().as_secs();
+                                    last_err_msg = strr;
+                                    continue 'mainloop;
+                                } 
+                            }
+                            Err(errmsg) =>
+                            {
+                                last_err_msg = errmsg;
+                            }
+                        }
+                    }
+                    ast::OtherCommand::Redo =>
+                    {
+                        match redo(&mut sheetstore.data, &history, history_index.clone())
+                        {
+                            Ok(old_function) =>
+                            {
+                                history_index+=1;
+                                start = Instant::now();
+                                // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
+                                if let Err(strr) = evaluate(&mut sheetstore.data, &a, &old_function)
+                                {
+                                    last_time = start.elapsed().as_secs();
+                                    last_err_msg = strr;
+                                    continue 'mainloop;
+                                } 
+                            }
+                            Err(errmsg) =>
+                            {
+                                last_err_msg = errmsg;
+                            }
+                        }
+                    }
                     ast::OtherCommand::ExportCsv(s) => {
                         let s_num = sheetstore.numFromName(s.as_str());
                         match s_num {
@@ -1010,46 +1231,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             None => last_err_msg = format!("Sheet name \"{}\" not found.", s)
                         }
                     }
-                    ast::OtherCommand::LoadCsv(path, opt_s) => todo!(), //{
-                    //     match opt_s {
-                    //         None => {
-                    //             let name_opt = path.strip_suffix(".csv");
-                    //             match name_opt {
-                    //                 Some(name) => {
-                    //                     if sheetstore.numFromName(name).is_none() {
-                    //                         let imp_result = import_csv(&path, sheetstore.data.len() as u32);
-                    //                         match imp_result {
-                    //                             Ok(x) => {
-                    //                                 sheetstore.addSheet(name, x); //Since we have alreayd verified that name does not exist already, this should happen successfully
-                    //                                 last_err_msg = String::from("ok");
-                    //                             },
-                    //                             Err(e) => last_err_msg = format!("Error occured during import: {}", e)
-                    //                         }
-                    //                     }
-                    //                     else {
-                    //                         last_err_msg = format!("Sheet name \"{}\" already exist.", name)
-                    //                     }
-                    //                 },
-                    //                 None => last_err_msg = format!("Invalid filepath (does not end in .csv): \"{}\"", path)
-                    //             }
-                    //         },
-                    //         Some(name) => {
-                    //             if sheetstore.numFromName(name.as_str()).is_none() {
-                    //                 let imp_result = import_csv(name.as_str(), sheetstore.data.len() as u32);
-                    //                 match imp_result {
-                    //                     Ok(x) => {
-                    //                         sheetstore.addSheet(name.as_str(), x); //Since we have alreayd verified that name does not exist already, this should happen successfully
-                    //                         last_err_msg = String::from("ok");
-                    //                     },
-                    //                     Err(e) => last_err_msg = format!("Error occured during import: {}", e)
-                    //                 }
-                    //             }
-                    //             else {
-                    //                 last_err_msg = format!("Sheet name \"{}\" already exist.", name)
-                    //             };
-                    //         }
-                    //     }
-                    // }
+                    ast::OtherCommand::LoadCsv(path, opt_s) => 
+                    {
+                        match opt_s {
+                            None => {
+                                let name_opt = path.strip_suffix(".csv");
+                                match name_opt {
+                                    Some(name) => {
+                                        if sheetstore.numFromName(name).is_none() {
+                                            let imp_result = import_csv(&path, sheetstore.data.len() as u32);
+                                            match imp_result {
+                                                Ok(x) => {
+                                                    sheetstore.addSheet(name, x); //Since we have alreayd verified that name does not exist already, this should happen successfully
+                                                    last_err_msg = String::from("ok");
+                                                },
+                                                Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                                            }
+                                        }
+                                        else {
+                                            last_err_msg = format!("Sheet name \"{}\" already exist.", name)
+                                        }
+                                    },
+                                    None => last_err_msg = format!("Invalid filepath (does not end in .csv): \"{}\"", path)
+                                }
+                            },
+                            Some(name) => {
+                                if sheetstore.numFromName(name.as_str()).is_none() {
+                                    let imp_result = import_csv(name.as_str(), sheetstore.data.len() as u32);
+                                    match imp_result {
+                                        Ok(x) => {
+                                            sheetstore.addSheet(name.as_str(), x); //Since we have alreayd verified that name does not exist already, this should happen successfully
+                                            last_err_msg = String::from("ok");
+                                        },
+                                        Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                                    }
+                                }
+                                else {
+                                    last_err_msg = format!("Sheet name \"{}\" already exist.", name)
+                                };
+                            }
+                        }
+                    },
                     ast::OtherCommand::Resize(s, c, r) => {
                         match sheetstore.numFromName(s.as_str()) {
                             Some(sheet_num) => {
@@ -1089,123 +1311,132 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
                 let old_func: Option<CellFunc>;
                 {
-                let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
-                if a.row >= cell_sheet.rows {
-                    last_time = 0;
-                    last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
-                    continue 'mainloop;
-                }
-                if a.col >= cell_sheet.columns {
-                    last_time = 0;
-                    last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
-                    continue 'mainloop;
-                }
-                let mut col = cell_sheet.data[a.col as usize].borrow_mut();
-                if col.cells.len() <= a.row as usize
-                {
-                    let mut p = col.cells.len() as u32;
-                    col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a.col})))});
-                }
-                drop(col);
+                    let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
+                    if a.row >= cell_sheet.rows {
+                        last_time = 0;
+                        last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
+                        continue 'mainloop;
+                    }
+                    if a.col >= cell_sheet.columns {
+                        last_time = 0;
+                        last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
+                        continue 'mainloop;
+                    }
+                    let mut col = cell_sheet.data[a.col as usize].borrow_mut();
+                    if col.cells.len() <= a.row as usize
+                    {
+                        let mut p = col.cells.len() as u32;
+                        col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a.col})))});
+                    }
+                    drop(col);
 
-                for dep in &dep_vec {
-                    match dep {
-                        ast::ParentType::Single(a_1) => {
-                            let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
-                            if a_1.row >= cell_sheet.rows {
-                                last_time = 0;
-                                last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
-                                continue 'mainloop;
-                            }
-                            if a_1.col >= cell_sheet.columns {
-                                last_time = 0;
-                                last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
-                                continue 'mainloop;
-                            }
-                            let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
-                            if col.cells.len() <= a_1.row  as usize
-                            {
-                                let mut p = col.cells.len() as u32;
-                                col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a_1.col})))});
-                            }
-                            drop(col);
-                        },
-                        ast::ParentType::Range(a_1, a_2) => {
-                            
-                            let cell_sheet = { 
-                                if a_1.sheet == a_2.sheet {
-                                    &sheetstore.data[a_1.sheet as usize].borrow()
-                                }
-                                else {
+                    for dep in &dep_vec {
+                        match dep {
+                            ast::ParentType::Single(a_1) => {
+                                let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
+                                if a_1.row >= cell_sheet.rows {
                                     last_time = 0;
-                                    last_err_msg = String::from("Range addresses must belong to the same sheet.");
-                                    continue 'mainloop
+                                    last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
+                                    continue 'mainloop;
                                 }
-                            };
-
-                            if a_1.row >= cell_sheet.rows {
-                                last_time = 0;
-                                last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
-                                continue 'mainloop;
-                            }
-                            if a_1.col >= cell_sheet.columns {
-                                last_time = 0;
-                                last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
-                                continue 'mainloop;
-                            }
-                            if a_2.row >= cell_sheet.rows {
-                                last_time = 0;
-                                last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
-                                continue 'mainloop;
-                            }
-                            if a_2.col >= cell_sheet.columns {
-                                last_time = 0;
-                                last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
-                                continue 'mainloop;
-                            }
-                            if a_1.col > a_2.col {
-                                last_time = 0;
-                                last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
-                                continue 'mainloop;
-                            }
-                            if a_1.row > a_2.row {
-                                last_time = 0;
-                                last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
-                                continue 'mainloop;
-                            }
-                            for i in a_1.col..=a_2.col {
-                                let mut col = cell_sheet.data[i as usize].borrow_mut();
-                                if col.cells.len() <= a_2.row as usize
+                                if a_1.col >= cell_sheet.columns {
+                                    last_time = 0;
+                                    last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
+                                    continue 'mainloop;
+                                }
+                                let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
+                                if col.cells.len() <= a_1.row  as usize
                                 {
                                     let mut p = col.cells.len() as u32;
-                                    col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: i})))});
+                                    col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a_1.col})))});
                                 }
                                 drop(col);
-                            }
-                        },
+                            },
+                            ast::ParentType::Range(a_1, a_2) => {
+                                
+                                let cell_sheet = { 
+                                    if a_1.sheet == a_2.sheet {
+                                        &sheetstore.data[a_1.sheet as usize].borrow()
+                                    }
+                                    else {
+                                        last_time = 0;
+                                        last_err_msg = String::from("Range addresses must belong to the same sheet.");
+                                        continue 'mainloop
+                                    }
+                                };
+
+                                if a_1.row >= cell_sheet.rows {
+                                    last_time = 0;
+                                    last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
+                                    continue 'mainloop;
+                                }
+                                if a_1.col >= cell_sheet.columns {
+                                    last_time = 0;
+                                    last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
+                                    continue 'mainloop;
+                                }
+                                if a_2.row >= cell_sheet.rows {
+                                    last_time = 0;
+                                    last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
+                                    continue 'mainloop;
+                                }
+                                if a_2.col >= cell_sheet.columns {
+                                    last_time = 0;
+                                    last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
+                                    continue 'mainloop;
+                                }
+                                if a_1.col > a_2.col {
+                                    last_time = 0;
+                                    last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
+                                    continue 'mainloop;
+                                }
+                                if a_1.row > a_2.row {
+                                    last_time = 0;
+                                    last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
+                                    continue 'mainloop;
+                                }
+                                for i in a_1.col..=a_2.col {
+                                    let mut col = cell_sheet.data[i as usize].borrow_mut();
+                                    if col.cells.len() <= a_2.row as usize
+                                    {
+                                        let mut p = col.cells.len() as u32;
+                                        col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: i})))});
+                                    }
+                                    drop(col);
+                                }
+                            },
+                        }
                     }
+
+                    let target_sheet = &sheetstore.data[a.sheet as usize].borrow();
+                    let target_cell_rc = Rc::clone(& (target_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
+                    let mut target_cell_ref = target_cell_rc.borrow_mut();
+                    old_func = (target_cell_ref).cell_func.clone();
+                    (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});
+                    let new_function = target_cell_ref.cell_func.clone();
+                    let address = target_cell_ref.addr.clone();
+                    // println!("{}", target_cell_rc.try_borrow_mut().is_ok());
+                    drop(target_cell_ref);
+
                 }
-
-                let target_sheet = &sheetstore.data[a.sheet as usize].borrow();
-                let target_cell_rc = Rc::clone(& (target_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
-                let mut target_cell_ref = target_cell_rc.borrow_mut();
-                old_func = (target_cell_ref).cell_func.clone();
-                (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});
-                // println!("{}", target_cell_rc.try_borrow_mut().is_ok());
-                drop(target_cell_ref);
-
-            }
-            start = Instant::now();
-                // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
+                start = Instant::now();
+                    // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
                 if let Err(strr) = evaluate(&mut sheetstore.data, &a, &old_func)
                 {
                     last_time = start.elapsed().as_secs();
                     last_err_msg = strr;
-                    continue 'mainloop;
-                    
+                    continue 'mainloop;   
+                }
+                else 
+                {
+                    history_index = 10.min(history_index+1);
+                    history.push((address, old_func.clone(), new_function));
+                    if history.len() > settings.undo_history_limit
+                    {
+                        history.remove(0);
+                    }
                 }              
             }
-
         }
         last_time = start.elapsed().as_secs();
         last_err_msg = String::from("ok");

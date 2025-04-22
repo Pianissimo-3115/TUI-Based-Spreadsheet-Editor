@@ -46,7 +46,8 @@ pub enum OtherCommand {
     RemoveSheet(String),
     RenameSheet(String, String),
     DuplicateSheet(String, Option<String>),
-
+    Undo,
+    Redo,
     // Help(String) //Display help for the command
     // List //Display list of all commands
 
@@ -55,10 +56,13 @@ pub enum OtherCommand {
     // RemoveRow(i32),
     // RemoveCol(i32),
 
-    // CopyCellVals(Addr),
-    // CopyRangeVals(Addr),
-    // CopyCellFormulae(Addr),
-    // CopyRangeFormulae(Addr),
+    CopyCellVals(Addr),
+    CopyRangeVals(Addr),
+    CopyCellFormulae(Addr),
+    CopyRangeFormulae(Addr),
+
+    Autofill_ap(),
+    Autofill_gp(),
 
     ExportCsv(String),
     LoadCsv(String, Option<String>), //File, SheetName
@@ -85,13 +89,6 @@ pub enum Expr {
     BinOp(BinaryFunction, Box<Expr>, Box<Expr>),
     TernaryOp(TernaryFunction, Box<Expr>, Box<Expr>, Box<Expr>)
 }
-
-impl Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TODO. Virju kaamchor hai.")
-    }
-}
-
 
 pub enum ParentType {
     Single(Addr),
