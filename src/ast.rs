@@ -24,6 +24,7 @@ pub enum ParserError{
 #[derive(Debug)]
 pub enum Command {
     DisplayCmd(DisplayCommand),  //Note: IS Box<DisplayCommand> better? Display Command is a finite data type, but expr was not.
+    OtherCmd(OtherCommand),
     AssignCmd(Addr, Box<Expr>),
     Quit,
 }
@@ -38,6 +39,37 @@ pub enum DisplayCommand {
     MoveLeft,
     MoveRight,
 }
+
+#[derive(Debug)]
+pub enum OtherCommand {
+    AddSheet(String, usize, usize),
+    RemoveSheet(String),
+    RenameSheet(String, String),
+    DuplicateSheet(String, Option<String>),
+
+    // Help(String) //Display help for the command
+    // List //Display list of all commands
+
+    // AddRow(i32),
+    // AddCol(i32),
+    // RemoveRow(i32),
+    // RemoveCol(i32),
+
+    // CopyCellVals(Addr),
+    // CopyRangeVals(Addr),
+    // CopyCellFormulae(Addr),
+    // CopyRangeFormulae(Addr),
+
+    ExportCsv(String),
+    LoadCsv(String, Option<String>), //File, SheetName
+    Resize(String, usize, usize)
+    //Graph ke commands daal
+    //ML wale commands daal
+    //
+
+}
+
+
 
 #[derive(Debug, Clone)]
 pub enum Expr {
