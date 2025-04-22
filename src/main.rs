@@ -6,13 +6,15 @@ pub mod evaluate_operations;
 use lalrpop_util::lalrpop_mod;
 use lalrpop_util::ParseError;
 use logos::Logos;
+use crate::ast::{Expr, Addr, ParentType};
+
 use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
 use crate::evaluate_operations::evaluate;
 // use crate::tokenscmds;
 // use crate::tokensexpr;
 use std::io::{self, Write, BufWriter};
 use std::rc::Rc;
-use std::cell::{RefCell, Ref};
+use std::cell::{RefCell};
 use std::cmp;
 use std::time::Instant;
 use std::fs::File;
@@ -130,16 +132,7 @@ impl Settings {
 
 fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
 {
-    let temp: String;
-    if let Some(tempp) = csv_name.strip_suffix(".csv")
-    {
-        temp = tempp.to_string();
-    }
-    else
-    {
-        temp = csv_name.to_string();
-    }
-    
+
     let mut csv_data: Vec<Vec<String>> = vec![];
     if let Ok(mut rdr) = Reader::from_path(csv_name)
     {
@@ -155,7 +148,7 @@ fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
                 return Err("Error reading csv".to_string());
             }
         }
-        let sheet: Sheet = Sheet::new(sheet_idx, temp, csv_data[0].len() as u32, csv_data.len() as u32);
+        let sheet: Sheet = Sheet::new(sheet_idx, csv_data[0].len() as u32, csv_data.len() as u32);
         for row in 0..csv_data.len()
         {
             for col in 0..csv_data[0].len()
@@ -277,7 +270,8 @@ fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String>
                 }
             }
             if let Ok(()) = writeln!(writer)
-            {}
+            {
+            }
             else 
             {
                 return Err("Error in writing csv".to_string());
@@ -366,7 +360,7 @@ fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sh
         return Err("The sheet you are trying to copy does not exit".to_string());
     }
     let mut new_sheet = sheets[sheet_number].borrow().clone();
-    new_sheet.sheet_name = sheet_name;
+    // new_sheet.sheet_name = sheet_name;
     new_sheet.sheet_idx = sheets.len() as u32;
     
 
@@ -816,7 +810,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
                 let old_func: Option<CellFunc>;
                 {
-                let cell_sheet = &sheetstore.data[a.sheet].borrow();
+                let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
                 if a.row >= cell_sheet.rows {
                     last_time = 0;
                     last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
