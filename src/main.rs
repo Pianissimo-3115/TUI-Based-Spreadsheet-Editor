@@ -14,7 +14,7 @@ use crate::evaluate_operations::evaluate;
 // use crate::tokensexpr;
 use std::io::{self, Write, BufWriter};
 use std::rc::Rc;
-use std::cell::{RefCell};
+use std::cell::RefCell;
 use std::cmp;
 use std::time::Instant;
 use std::fs::File;
@@ -352,6 +352,285 @@ fn copy_range_function(addr1:Addr, addr2:Addr, sheets: &Vec<Rc<RefCell<Sheet>>>)
         }
     }
 }
+
+fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>) -> Result<(),String>
+{
+    let sheet_ref: &Rc<RefCell<Sheet>> = &sheets[start_addr.sheet as usize];
+    let sheet: std::cell::Ref<'_, Sheet> = sheet_ref.borrow();
+    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[start_addr.col as usize];
+    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+    let cell_rc: Rc<RefCell<Cell>> = Rc::clone(&column[start_addr.row as usize]);
+    // drop(column);
+    let cell1: std::cell::Ref<'_, Cell> = cell_rc.borrow();
+    if start_addr.col == end_addr.col       // mtlb same column mei autofill krni h
+    {
+        let cell2_rc = Rc::clone(&column[(start_addr.row+1) as usize]);
+        let cell2 = cell2_rc.borrow();
+        match (cell1.value.clone(),cell2.value.clone())
+        {
+            (ValueType::IntegerValue(val1), ValueType::IntegerValue(val2)) =>
+            {
+                let common_diff = val2-val1;
+                for row in start_addr.row+2..= end_addr.row
+                {
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    let mut cell = cell_rc.borrow_mut();
+                    cell.value = ValueType::IntegerValue(val1 + common_diff*(row-start_addr.row) as i32);
+                }
+            }
+            (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
+            {
+                let common_diff = val2-val1 as f64;
+                for row in start_addr.row+2..= end_addr.row
+                {
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    let mut cell = cell_rc.borrow_mut();
+                    cell.value = ValueType::FloatValue(val1 as f64 + common_diff*(row-start_addr.row) as f64);
+                }
+            }
+            (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
+            {
+                let common_diff = val2-val1;
+                for row in start_addr.row+2..= end_addr.row
+                {
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    let mut cell = cell_rc.borrow_mut();
+                    cell.value = ValueType::FloatValue(val1 + common_diff*(row-start_addr.row) as f64);
+                }
+            }
+            (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
+            {
+                let common_diff = val2 as f64 - val1;
+                for row in start_addr.row+2..= end_addr.row
+                {
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    let mut cell = cell_rc.borrow_mut();
+                    cell.value = ValueType::FloatValue(val1 + common_diff*(row-start_addr.row) as f64);
+                }
+            }
+            (_,_) =>
+            {
+                return Err("AP autofill cannot be used with Booleans or Strings".to_string());
+            }
+        } 
+    }
+    else if start_addr.row == end_addr.row  // mtlb samne row mei autofill krni h
+    {
+        let column_ref: &RefCell<cell_operations::Column> = &sheet.data[(start_addr.col+1) as usize];
+        let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+        let cell_rc: Rc<RefCell<Cell>> = Rc::clone(&column[start_addr.row as usize]);
+        // drop(column);
+        let cell2: std::cell::Ref<'_, Cell> = cell_rc.borrow();
+        match (cell1.value.clone(),cell2.value.clone())
+        {
+            (ValueType::IntegerValue(val1), ValueType::IntegerValue(val2)) =>
+            {
+                let common_diff = val2-val1;
+                for col in start_addr.col+2..= end_addr.col
+                {
+                    
+                    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
+                    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+                    let cell_rc= Rc::clone(&column[start_addr.row as usize]);
+                    let mut cell3 = cell_rc.borrow_mut();
+                    cell3.value = ValueType::IntegerValue(val1 + common_diff*(col-start_addr.col) as i32);
+                }
+            }
+            (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
+            {
+                let common_diff = val2-val1 as f64;
+                for col in start_addr.row+2..= end_addr.row
+                {
+                    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
+                    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+                    let cell_rc= Rc::clone(&column[start_addr.row as usize]);
+                    let mut cell3 = cell_rc.borrow_mut();
+                    cell3.value = ValueType::FloatValue(val1 as f64 + common_diff*(col-start_addr.col) as f64);
+                }
+            }
+            (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
+            {
+                let common_diff = val2-val1;
+                for col in start_addr.col+2..= end_addr.col
+                {
+                    
+                    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
+                    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+                    let cell_rc= Rc::clone(&column[start_addr.row as usize]);
+                    let mut cell3 = cell_rc.borrow_mut();
+                    cell3.value = ValueType::FloatValue(val1 + common_diff*(col-start_addr.col) as f64);
+                }
+            }
+            (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
+            {
+                let common_diff = (val2 as f64) - val1;
+                for col in start_addr.col+2..= end_addr.col
+                {
+                    
+                    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
+                    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+                    let cell_rc= Rc::clone(&column[start_addr.row as usize]);
+                    let mut cell3 = cell_rc.borrow_mut();
+                    cell3.value = ValueType::FloatValue(val1 + common_diff*(col-start_addr.col) as f64);
+                }
+            }
+            (_,_) =>
+            {
+                return Err("AP autofill cannot be used with Booleans or Strings".to_string());
+            }
+        } 
+    }
+    else
+    {
+        return Err("Cannot autofill sequence in 2-D range".to_string());
+    }
+    Ok(())
+}
+
+
+
+fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>) -> Result<(),String>
+{
+    let sheet_ref: &Rc<RefCell<Sheet>> = &sheets[start_addr.sheet as usize];
+    let sheet: std::cell::Ref<'_, Sheet> = sheet_ref.borrow();
+    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[start_addr.col as usize];
+    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+    let cell_rc: Rc<RefCell<Cell>> = Rc::clone(&column[start_addr.row as usize]);
+    // drop(column);
+    let cell1: std::cell::Ref<'_, Cell> = cell_rc.borrow();
+    if let ValueType::IntegerValue(0) = cell1.value
+    {
+        return Err("GP cannot start with Integral Value".to_string());
+    }if let ValueType::FloatValue(0.) = cell1.value
+    {
+        return Err("GP cannot start with Float Value 0".to_string());
+    }
+    if start_addr.col == end_addr.col       // mtlb same column mei autofill krni h
+    {
+        let cell2_rc = Rc::clone(&column[(start_addr.row+1) as usize]);
+        let cell2 = cell2_rc.borrow();
+        match (cell1.value.clone(),cell2.value.clone())
+        {
+            (ValueType::IntegerValue(val1), ValueType::IntegerValue(val2)) =>
+            {
+
+                let common_ratio = val2 as f64/val1 as f64;
+                for row in start_addr.row+2..= end_addr.row
+                {
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    let mut cell = cell_rc.borrow_mut();
+                    cell.value = ValueType::FloatValue(val1 as f64 * common_ratio.powf((row-start_addr.row) as f64));
+                }
+            }
+            (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
+            {
+                let common_ratio = val2/val1 as f64;
+                for row in start_addr.row+2..= end_addr.row
+                {
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    let mut cell = cell_rc.borrow_mut();
+                    cell.value = ValueType::FloatValue(val1 as f64 * common_ratio.powf((row-start_addr.row) as f64));
+                }
+            }
+            (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
+            {
+                let common_ratio = val2-val1;
+                for row in start_addr.row+2..= end_addr.row
+                {
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    let mut cell = cell_rc.borrow_mut();
+                    cell.value = ValueType::FloatValue(val1 * common_ratio.powf((row-start_addr.row) as f64));
+                }
+            }
+            (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
+            {
+                let common_ratio = val2 as f64 / val1;
+                for row in start_addr.row+2..= end_addr.row
+                {
+                    let cell_rc = Rc::clone(&column[row as usize]);
+                    let mut cell = cell_rc.borrow_mut();
+                    cell.value = ValueType::FloatValue(val1 * common_ratio.powf((row-start_addr.row) as f64));
+                }
+            }
+            (_,_) =>
+            {
+                return Err("GP autofill cannot be used with Booleans or Strings".to_string());
+            }
+        } 
+    }
+    else if start_addr.row == end_addr.row  // mtlb samne row mei autofill krni h
+    {
+        let column_ref: &RefCell<cell_operations::Column> = &sheet.data[(start_addr.col+1) as usize];
+        let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+        let cell_rc: Rc<RefCell<Cell>> = Rc::clone(&column[start_addr.row as usize]);
+        // drop(column);
+        let cell2: std::cell::Ref<'_, Cell> = cell_rc.borrow();
+        match (cell1.value.clone(),cell2.value.clone())
+        {
+            (ValueType::IntegerValue(val1), ValueType::IntegerValue(val2)) =>
+            {
+                let common_diff = val2-val1;
+                for col in start_addr.col+2..= end_addr.col
+                {
+                    
+                    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
+                    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+                    let cell_rc= Rc::clone(&column[start_addr.row as usize]);
+                    let mut cell3 = cell_rc.borrow_mut();
+                    cell3.value = ValueType::IntegerValue(val1 + common_diff*(col-start_addr.col) as i32);
+                }
+            }
+            (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
+            {
+                let common_diff = val2-val1 as f64;
+                for col in start_addr.row+2..= end_addr.row
+                {
+                    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
+                    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+                    let cell_rc= Rc::clone(&column[start_addr.row as usize]);
+                    let mut cell3 = cell_rc.borrow_mut();
+                    cell3.value = ValueType::FloatValue(val1 as f64 + common_diff*(col-start_addr.col) as f64);
+                }
+            }
+            (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
+            {
+                let common_diff = val2-val1;
+                for col in start_addr.col+2..= end_addr.col
+                {
+                    
+                    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
+                    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+                    let cell_rc= Rc::clone(&column[start_addr.row as usize]);
+                    let mut cell3 = cell_rc.borrow_mut();
+                    cell3.value = ValueType::FloatValue(val1 + common_diff*(col-start_addr.col) as f64);
+                }
+            }
+            (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
+            {
+                let common_diff = (val2 as f64) - val1;
+                for col in start_addr.col+2..= end_addr.col
+                {
+                    
+                    let column_ref: &RefCell<cell_operations::Column> = &sheet.data[col as usize];
+                    let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
+                    let cell_rc= Rc::clone(&column[start_addr.row as usize]);
+                    let mut cell3 = cell_rc.borrow_mut();
+                    cell3.value = ValueType::FloatValue(val1 + common_diff*(col-start_addr.col) as f64);
+                }
+            }
+            (_,_) =>
+            {
+                return Err("AP autofill cannot be used with Booleans or Strings".to_string());
+            }
+        } 
+    }
+    else
+    {
+        return Err("Cannot autofill sequence in 2-D range".to_string());
+    }
+    Ok(())
+}
+
 
 fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sheet_name: String) -> Result<(),String>  // sheet_number and sheet_name correspond to the old sheet that has been copied
 {
