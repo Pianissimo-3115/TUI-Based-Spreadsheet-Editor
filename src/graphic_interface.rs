@@ -30,6 +30,9 @@ pub struct StyleGuide {
     pub history_widget: Style,
     pub tabs_unselected: Style,
     pub tabs_selected: Style,
+    pub cell_details_header: Style,
+    pub cell_details_even_row: Style,
+    pub cell_details_odd_row: Style
 
 
 }
@@ -39,15 +42,18 @@ pub struct StyleGuide {
 impl StyleGuide {
     pub fn new() -> Self {
         Self {
-            table_header: Style::default().fg(Color::Yellow),
+            table_header: Style::default().fg(Color::White).bg(tailwind::BLUE.c900),
             selected_cell: Style::default(), //NOT YET IMPLEMENTED
-            table_even_row: Style::default().bg(Color::Black),
-            table_odd_row: Style::default().bg(Color::DarkGray),
+            table_even_row: Style::default().bg(tailwind::SLATE.c950),
+            table_odd_row: Style::default().bg(tailwind::SLATE.c900),
             inp_box_idle_mode: Style::default(),
             inp_box_editing_mode: Style::default().fg(Color::Yellow),
             history_widget: Style::default(),
             tabs_unselected: Style::default().fg(Color::Green),
             tabs_selected: Style::default().fg(Color::Yellow),
+            cell_details_header: Style::default().fg(Color::White).bg(tailwind::BLUE.c900),
+            cell_details_even_row: Style::default().bg(tailwind::SLATE.c950),
+            cell_details_odd_row: Style::default().bg(tailwind::SLATE.c900),
 
         }
     }
@@ -223,6 +229,73 @@ impl TabsWidget {
     }
 }
 
+pub struct CellDetailsWidget {
+    // pub tabs: Vec<String>,
+    // pub index: usize
+}
+
+impl CellDetailsWidget {
+
+    pub fn draw(&mut self, col: usize, row: usize, sheet: &Sheet,  area: Rect, frame: &mut Frame, styleguide: &StyleGuide) {
+        let block = Block::default()
+        .title("Cell Details")
+        .borders(Borders::ALL);
+
+        let header = Row::new(vec![String::from("Property"), String::from("Value")])
+            .style(styleguide.cell_details_header);
+
+        let mut data: Vec<Vec<String>>;
+        let curr_cell_col = sheet.data[col].borrow();
+        if row >= curr_cell_col.cells.len() {
+            data = vec![
+                vec![String::from("Column"), col.to_string()],
+                vec![String::from("Row"), row.to_string()],
+                vec![String::from("Value"), String::from("~")]
+            ];
+        }
+        else {
+            let curr_cell = curr_cell_col.cells[row].borrow();
+
+            data = vec![
+                vec![String::from("Column"), curr_cell.addr.col.to_string()],
+                vec![String::from("Row"), curr_cell.addr.row.to_string()],
+                vec![String::from("Value"), 
+                    match &curr_cell.value {
+                        ValueType::BoolValue(b) => b.to_string(),
+                        ValueType::IntegerValue(x) => x.to_string(),
+                        ValueType::FloatValue(n) => n.to_string(),
+                        ValueType::String(s) => s.to_string(),
+                    }]
+            ];
+        }
+
+        // Convert data into styled rows with alternating backgrounds
+        let rows: Vec<Row> = data
+            .into_iter()
+            .enumerate()
+            .map(|(i, row)| {
+                let style = if i % 2 == 0 {
+                    styleguide.table_even_row
+                } else {
+                    styleguide.table_odd_row
+                };
+
+                let cells = row.into_iter().map(Cell::from);
+                Row::new(cells).style(style)
+            })
+            .collect();
+
+        let widths = vec![Constraint::Length(10), Constraint::Length(10)];
+        // Build the table
+        let table = Table::new(rows, widths)
+            .header(header)
+            .block(block)
+            .column_spacing(2); // extra spacing between columns
+        frame.render_widget(table, area);
+
+    }
+}
+
 
 
 
@@ -231,15 +304,15 @@ impl TabsWidget {
 
 pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) -> () {
 
-
+    let COLUMN_WIDTH = 5;
     // let mut area = f.area();
     // Table block (outer border + title)
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL);
 
-    let row_max = cmp::min(row + area.height.saturating_sub(4) as usize, sheet.rows as usize);
-    let col_max = cmp::min(col+10, sheet.columns as usize);
+    let row_max = cmp::min(row + area.height.saturating_sub(2) as usize, sheet.rows as usize);
+    let col_max = cmp::min(col + area.width.saturating_sub(COLUMN_WIDTH+2).saturating_div(COLUMN_WIDTH+2) as usize, sheet.columns as usize);
 
     // Header row
     let mut row_heads_vec: Vec<String> = vec![String::from("")];
@@ -310,7 +383,7 @@ pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect
         })
         .collect();
 
-    let widths = vec![Constraint::Length(5); num_cols];
+    let widths = vec![Constraint::Length(COLUMN_WIDTH); num_cols];
     // Build the table
     let table = Table::new(rows, widths)
         .header(header)

@@ -43,7 +43,7 @@ fn parse_global_cell(s: &str) -> Option<(String, u32, u32)> {
     let row = digits.parse::<u32>().ok()? - 1;
     let mut col: u32 = 0;
     for c in letters.chars() {
-        col = col*27 + (c as u8 - b'A' + 1) as u32; 
+        col = col*26 + (c as u8 - b'A' + 1) as u32; 
     }
     col -=1; //Zero based indexing
     Some((sheet.to_string(), col, row))
@@ -127,6 +127,9 @@ pub enum Token {
     CopyRangeValues,
     #[token("copy_range_formulas")]
     CopyRangeFormulas,
+
+    #[token(":")]
+    Colon,
 }
 
 //Below is copy paste from lalrpop tutorial:
