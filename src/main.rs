@@ -3,13 +3,18 @@ pub mod tokensexpr;
 pub mod tokenscmds;
 pub mod cell_operations;
 pub mod evaluate_operations;
+pub mod graphic_interface;
+use graphic_interface::HistoryWidget;
+use graphic_interface::TabsWidget;
 use lalrpop_util::lalrpop_mod;
 use lalrpop_util::ParseError;
 use logos::Logos;
+use ratatui::style::Style;
 use crate::ast::{Expr, Addr, ParentType};
 use csv::ReaderBuilder;
 use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
 use crate::evaluate_operations::evaluate;
+use crate::graphic_interface::{draw_table, StyleGuide, TextInputWidget, InputMode};
 // use crate::tokenscmds;
 // use crate::tokensexpr;
 use std::io::{self, Write, BufWriter};
@@ -19,6 +24,30 @@ use std::cmp;
 use std::time::Instant;
 use std::fs::File;
 // use serde::Serialize;
+use csv::Reader;
+
+
+// --For Graphics--
+use crossterm::{
+    execute,
+    terminal::{enable_raw_mode, disable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+
+use ratatui::{
+    crossterm::event::{self, Event, KeyCode, KeyEventKind},
+    backend::CrosstermBackend,
+    Terminal,
+    layout::{
+        Constraint::{self, Fill, Length, Max, Min, Percentage, Ratio},
+        Layout, Rect,
+    },
+    // widgets::{Table, Row, Cell, Block, Borders},
+    // layout::{Constraint, Direction, Layout, Rect},
+    // style::{Style, Color, palette::tailwind},
+};
+// -x-
+
+
 
 //NOTE: PLEASE HAR JAGA usize KAR DO, bohot zyada conversions karne pad rahe hai
 
@@ -57,6 +86,19 @@ impl SheetStorage {
             map: vec![],
             data: vec![]
         }
+    }
+
+    pub fn listNames(&self) -> Vec<String> {
+        self.map.iter().map(|x| x.0.clone()).collect::<Vec<String>>()
+    }
+
+    pub fn listIndexFromNum(&self, num: usize) -> Option<usize> {
+        for i in 0..self.map.len() {
+            if self.map[i].1 == num {
+                return Some(i)
+            }
+        };
+        None
     }
 
     pub fn num_from_name(&self, name: &str) -> Option<usize> {
@@ -1081,9 +1123,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         .expect("Column number not entered (Second arg missing)")
         .parse().expect("Invalid input for Column number (Second arg)");
 
-    // let r: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
-    // let c: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
-    //sheets: &Vec<Rc<RefCell<Sheet>>>
+    //Graphics Initialisation
+    enable_raw_mode()?; //NOTE: Source of panic.
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?; //NOTE: Source of panic.
+
+    let styleguide = StyleGuide::new();
+    let mut inputWidget = TextInputWidget::new();
+    let mut historyWidget = HistoryWidget::new();
+    let mut tabsWidget = TabsWidget{tabs: vec![], index: 0};
+
+
+
 
     let mut sheetstore = SheetStorage::new();
     sheetstore.new_sheet("sheet0", c as usize, r as usize);
@@ -1104,19 +1157,58 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut history_index: i32 = -1;
 
     'mainloop: while !exit {
-        let mut start;
-        if show_window {
-            // let curr_sheet = ;
-            display_sheet(curr_col as u32, curr_row as u32, &sheetstore.data[curr_sheet_number].borrow(),  &settings, false);
-        }
-        let mut inp = String::new();
-        print!("[{}.0] ", last_time);
-        print!("({}) >> ", last_err_msg);
-        io::stdout().flush().unwrap();
+        let mut start = Instant::now();
+        terminal.draw(|frame| {
+            let [tabs_area, table_area, history_area, input_area] = Layout::vertical([Min(3), Percentage(60), Percentage(40), Min(3)]).areas(frame.area());
+            tabsWidget.tabs = sheetstore.listNames();
+            tabsWidget.index = sheetstore.listIndexFromNum(curr_sheet_number).unwrap();  //NOTE: Source of panic.
+            tabsWidget.draw(tabs_area, frame, &styleguide);
+            draw_table(curr_col, curr_row, &sheetstore.data[curr_sheet_number].borrow(), "Spreadsheet", table_area, frame, &styleguide);
+            historyWidget.draw(history_area, frame, &styleguide);
+            inputWidget.draw(input_area, frame, &styleguide);
+        });
+        let mut inp: String = String::new();
 
-        io::stdin()
-        .read_line(&mut inp)
-        .expect("Failed to read line"); //NOTE (to self): Better error message
+        if let Event::Key(key) = event::read()? {
+            match inputWidget.input_mode {
+                InputMode::Normal => match key.code {
+                    KeyCode::Char('e') => {
+                        inputWidget.input_mode = InputMode::Editing;
+                        continue 'mainloop
+                    }
+                    KeyCode::Char('q') => {
+                        return Ok(());
+                    }
+                    
+                    _ => { continue 'mainloop }
+                },
+                InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
+                    KeyCode::Enter => { 
+                        inp = inputWidget.input.clone();
+                        inputWidget.reset_cursor();
+                        inputWidget.input.clear();
+                        },
+                    KeyCode::Char(to_insert) => { inputWidget.enter_char(to_insert); continue 'mainloop} ,
+                    KeyCode::Backspace => { inputWidget.delete_char(); continue 'mainloop }
+                    KeyCode::Left => { inputWidget.move_cursor_left(); continue 'mainloop }
+                    KeyCode::Right => { inputWidget.move_cursor_right(); continue 'mainloop }
+                    KeyCode::Esc => { inputWidget.input_mode = InputMode::Normal; continue 'mainloop }
+                    _ => { continue 'mainloop }
+                },
+                InputMode::Editing => { continue 'mainloop }
+            }
+        }
+        else { continue 'mainloop};
+
+
+
+
+
+
+
+        // print!("[{}.0] ", last_time);
+        // print!("({}) >> ", last_err_msg);
+        // io::stdout().flush().unwrap();
 
         let ast;
         let dep_vec;
@@ -1138,19 +1230,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 {
                     last_err_msg = String::from("Invalid Token"); 
                     last_time = 0;
-                    continue
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    continue 'mainloop
                 },
                 Err(ParseError::User{error: tokenscmds::LexicalError::InvalidInteger(x)}) => 
                 {   
                     last_err_msg = format!("Invalid Integer {:?}", x); 
                     last_time = 0;
-                    continue
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    continue 'mainloop
                 }, 
                 Err(e) => 
                 {
                     last_err_msg = format!("This error: {:?}", e); 
                     last_time = 0;
-                    continue
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    continue 'mainloop
                 }
             };
         }
@@ -1168,19 +1266,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 {
                     last_err_msg = String::from("Invalid Token"); 
                     last_time = 0;
-                    continue
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    continue 'mainloop
                 },
                 Err(ParseError::User{error: tokensexpr::LexicalError::InvalidInteger(x)}) => 
                 {   
                     last_err_msg = format!("Invalid Integer {:?}", x); 
                     last_time = 0;
-                    continue
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    continue 'mainloop
                 }, 
                 Err(e) => 
                 {
                     last_err_msg = format!("This error: {:?}", e); 
                     last_time = 0;
-                    continue
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    continue 'mainloop
                 }
             };
         }
@@ -1409,7 +1513,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         }
                     }
                 };
-                continue
+                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                continue 'mainloop
             }
             ast::Command::DisplayCmd(d_cmd) => {
                 let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
@@ -1421,7 +1527,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         if (addr.row >= curr_sheet.rows) | (addr.col >= curr_sheet.columns) {
                             last_time = 0;
                             last_err_msg = String::from("Address out of bounds");
-                            continue
+                            historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                            historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                            continue 'mainloop
                         }
                         curr_sheet_number = addr.sheet as usize;
                         let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
@@ -1433,108 +1541,135 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     ast::DisplayCommand::MoveDown => curr_row = cmp::max(0, cmp::min(curr_row as i64 +1 , curr_sheet.rows as i64 - 10)) as usize,
                     ast::DisplayCommand::MoveRight => curr_col = cmp::max(0, cmp::min(curr_col as i64 +1 , curr_sheet.columns as i64 - 10)) as usize,
                     ast::DisplayCommand::MoveLeft => curr_col = cmp::max(0, cmp::min(curr_col as i64 -1 , curr_sheet.columns as i64 - 10)) as usize,
-                }},
+                };
+                last_err_msg = String::from("ok");
+                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                continue 'mainloop
+            },
             ast::Command::Quit => exit = true,
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
 
                 let old_func: Option<CellFunc>;
                 {
-                    let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
-                    if a.row >= cell_sheet.rows {
-                        last_time = 0;
-                        last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
-                        continue 'mainloop;
-                    }
-                    if a.col >= cell_sheet.columns {
-                        last_time = 0;
-                        last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
-                        continue 'mainloop;
-                    }
-                    let mut col = cell_sheet.data[a.col as usize].borrow_mut();
-                    if col.cells.len() <= a.row as usize
-                    {
-                        let mut p = col.cells.len() as u32;
-                        col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a.col})))});
-                    }
-                    drop(col);
+                let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
+                if a.row >= cell_sheet.rows {
+                    last_time = 0;
+                    last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    continue 'mainloop;
+                }
+                if a.col >= cell_sheet.columns {
+                    last_time = 0;
+                    last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    continue 'mainloop;
+                }
+                let mut col = cell_sheet.data[a.col as usize].borrow_mut();
+                if col.cells.len() <= a.row as usize
+                {
+                    let mut p = col.cells.len() as u32;
+                    col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a.col})))});
+                }
+                drop(col);
 
-                    for dep in &dep_vec {
-                        match dep {
-                            ast::ParentType::Single(a_1) => {
-                                let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
-                                if a_1.row >= cell_sheet.rows {
-                                    last_time = 0;
-                                    last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
-                                    continue 'mainloop;
+                for dep in &dep_vec {
+                    match dep {
+                        ast::ParentType::Single(a_1) => {
+                            let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
+                            if a_1.row >= cell_sheet.rows {
+                                last_time = 0;
+                                last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
+                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                continue 'mainloop;
+                            }
+                            if a_1.col >= cell_sheet.columns {
+                                last_time = 0;
+                                last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
+                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                continue 'mainloop;
+                            }
+                            let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
+                            if col.cells.len() <= a_1.row  as usize
+                            {
+                                let mut p = col.cells.len() as u32;
+                                col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a_1.col})))});
+                            }
+                            drop(col);
+                        },
+                        ast::ParentType::Range(a_1, a_2) => {
+                            
+                            let cell_sheet = { 
+                                if a_1.sheet == a_2.sheet {
+                                    &sheetstore.data[a_1.sheet as usize].borrow()
                                 }
-                                if a_1.col >= cell_sheet.columns {
+                                else {
                                     last_time = 0;
-                                    last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
-                                    continue 'mainloop;
+                                    last_err_msg = String::from("Range addresses must belong to the same sheet.");
+                                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                    continue 'mainloop
                                 }
-                                let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
-                                if col.cells.len() <= a_1.row  as usize
+                            };
+
+                            if a_1.row >= cell_sheet.rows {
+                                last_time = 0;
+                                last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
+                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                continue 'mainloop;
+                            }
+                            if a_1.col >= cell_sheet.columns {
+                                last_time = 0;
+                                last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
+                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                continue 'mainloop;
+                            }
+                            if a_2.row >= cell_sheet.rows {
+                                last_time = 0;
+                                last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
+                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                continue 'mainloop;
+                            }
+                            if a_2.col >= cell_sheet.columns {
+                                last_time = 0;
+                                last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
+                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                continue 'mainloop;
+                            }
+                            if a_1.col > a_2.col {
+                                last_time = 0;
+                                last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
+                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                continue 'mainloop;
+                            }
+                            if a_1.row > a_2.row {
+                                last_time = 0;
+                                last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
+                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                continue 'mainloop;
+                            }
+                            for i in a_1.col..=a_2.col {
+                                let mut col = cell_sheet.data[i as usize].borrow_mut();
+                                if col.cells.len() <= a_2.row as usize
                                 {
                                     let mut p = col.cells.len() as u32;
-                                    col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a_1.col})))});
+                                    col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: i})))});
                                 }
                                 drop(col);
-                            },
-                            ast::ParentType::Range(a_1, a_2) => {
-                                
-                                let cell_sheet = { 
-                                    if a_1.sheet == a_2.sheet {
-                                        &sheetstore.data[a_1.sheet as usize].borrow()
-                                    }
-                                    else {
-                                        last_time = 0;
-                                        last_err_msg = String::from("Range addresses must belong to the same sheet.");
-                                        continue 'mainloop
-                                    }
-                                };
-
-                                if a_1.row >= cell_sheet.rows {
-                                    last_time = 0;
-                                    last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
-                                    continue 'mainloop;
-                                }
-                                if a_1.col >= cell_sheet.columns {
-                                    last_time = 0;
-                                    last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
-                                    continue 'mainloop;
-                                }
-                                if a_2.row >= cell_sheet.rows {
-                                    last_time = 0;
-                                    last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
-                                    continue 'mainloop;
-                                }
-                                if a_2.col >= cell_sheet.columns {
-                                    last_time = 0;
-                                    last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
-                                    continue 'mainloop;
-                                }
-                                if a_1.col > a_2.col {
-                                    last_time = 0;
-                                    last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
-                                    continue 'mainloop;
-                                }
-                                if a_1.row > a_2.row {
-                                    last_time = 0;
-                                    last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
-                                    continue 'mainloop;
-                                }
-                                for i in a_1.col..=a_2.col {
-                                    let mut col = cell_sheet.data[i as usize].borrow_mut();
-                                    if col.cells.len() <= a_2.row as usize
-                                    {
-                                        let mut p = col.cells.len() as u32;
-                                        col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: i})))});
-                                    }
-                                    drop(col);
-                                }
-                            },
-                        }
+                            }
+                        },
                     }
+                }
 
                     let target_sheet = &sheetstore.data[a.sheet as usize].borrow();
                     let target_cell_rc = Rc::clone(& (target_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
@@ -1556,6 +1691,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 {
                     last_time = start.elapsed().as_secs();
                     last_err_msg = strr;
+                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
                     continue 'mainloop;   
                 }
                 else 
@@ -1571,7 +1708,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         }
         last_time = start.elapsed().as_secs();
         last_err_msg = String::from("ok");
-    }
+        historyWidget.history.push((inp.clone(), last_err_msg.clone()));
+        historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);}
 
+    disable_raw_mode()?;
+    execute!(io::stdout(), LeaveAlternateScreen)?;
     Ok(())
 }
