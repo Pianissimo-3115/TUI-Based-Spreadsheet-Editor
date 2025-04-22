@@ -1160,6 +1160,7 @@ fn calculate(cell_rc:Rc<RefCell<Cell>>, sheets: &[Rc<RefCell<Sheet>>]) -> Result
         {
             let r1= cell.addr.row;
             let c1= cell.addr.col;
+            cell.value = ValueType::IntegerValue(0);
             drop(cell);
             Err(format!("No function associated to the cell at ({}, {})",r1, c1))
         }
@@ -1286,7 +1287,7 @@ fn update_children(sheets: &[Rc<RefCell<Sheet>>], cell: &Addr) -> Result<(), Str
         let cell_rc = Rc::clone(& column[i.row as usize]);
         drop(column);
         let curr_cell = cell_rc.borrow();
-        let checker = curr_cell.cell_func.is_some();
+        // let checker = curr_cell.cell_func.is_some();
         drop(curr_cell);
         // match curr_cell.cell_func
         // {
@@ -1296,10 +1297,8 @@ fn update_children(sheets: &[Rc<RefCell<Sheet>>], cell: &Addr) -> Result<(), Str
         //     },
         //     None => Ok(()),
         // }
-        if checker
-        {
-            error = calculate(cell_rc, sheets);
-        }
+        error = calculate(cell_rc, sheets);
+        
     }
     if let Err(err) = error
     {
