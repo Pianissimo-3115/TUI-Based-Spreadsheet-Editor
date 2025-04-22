@@ -1,7 +1,7 @@
 use crate::tokensexpr::{Token, LexicalError};
 use crate::ast::*;
 use crate::SheetStorage;
-
+use lalrpop_util::ParseError;
 grammar(curr_sheet: u32, sheetstore: &SheetStorage);
 
 
@@ -185,12 +185,15 @@ Addr: Addr = {
     <cr: "localcell"> => { 
         let (col, row) = cr;
         Addr{sheet: curr_sheet, col, row} },  //NOTE: Why am I doing Box::new everywhere?. Also, how come tokens returns Option<_> but stufff is working?!?
-    <scr: "globalcell"> => { 
+    <scr: "globalcell"> =>? { 
         let (sheet, col, row) = scr;
         let sheet_num_opt = sheetstore.numFromName(&sheet);
-        let Some(sheet_num) = sheet_num_opt else { todo!() };
-        Addr{sheet: sheet_num as u32, col, row} 
+        if let Some(sheet_num) = sheet_num_opt {
+            Ok(Addr{sheet: sheet_num as u32, col, row}) 
+        }
+        else { Err(ParseError::User {error: LexicalError::SheetNotFoundErr(sheet) }) }
         },  
+    
 }
 
 RangeFuncs: RangeFunction = {

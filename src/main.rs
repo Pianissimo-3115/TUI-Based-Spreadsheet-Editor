@@ -546,9 +546,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             last_err_msg = String::from("Address out of bounds");
                             continue
                         }
+                        curr_sheet_number = addr.sheet as usize;
+                        let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
                         curr_col = cmp::max(0, cmp::min(addr.col as i64, curr_sheet.columns as i64 - 10)) as usize;
                         curr_row = cmp::max(0, cmp::min(addr.row as i64, curr_sheet.rows as i64 - 10)) as usize;
-                        curr_sheet_number = addr.sheet as usize;
                     },
 
                     ast::DisplayCommand::MoveUp => curr_row = cmp::max(0, cmp::min(curr_row as i64 -1 , curr_sheet.rows as i64 - 10)) as usize,
@@ -560,63 +561,76 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
                 let old_func: Option<CellFunc>;
                 {
-                let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
-                if a.row >= curr_sheet.rows {
+                let cell_sheet = &sheetstore.data[a.sheet].borrow();
+                if a.row >= cell_sheet.rows {
                     last_time = 0;
                     last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
                     continue 'mainloop;
                 }
-                if a.col >= curr_sheet.columns {
+                if a.col >= cell_sheet.columns {
                     last_time = 0;
                     last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
                     continue 'mainloop;
                 }
-                let mut col = curr_sheet.data[a.col as usize].borrow_mut();
+                let mut col = cell_sheet.data[a.col as usize].borrow_mut();
                 if col.cells.len() <= a.row as usize
                 {
                     let mut p = col.cells.len() as u32;
-                    col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: a.col})))});
+                    col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a.col})))});
                 }
                 drop(col);
 
                 for dep in &dep_vec {
                     match dep {
                         ast::ParentType::Single(a_1) => {
-                            if a_1.row >= curr_sheet.rows {
+                            let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
+                            if a_1.row >= cell_sheet.rows {
                                 last_time = 0;
                                 last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
-                            if a_1.col >= curr_sheet.columns {
+                            if a_1.col >= cell_sheet.columns {
                                 last_time = 0;
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
-                            let mut col = curr_sheet.data[a_1.col as usize].borrow_mut();
+                            let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
                             if col.cells.len() <= a_1.row  as usize
                             {
                                 let mut p = col.cells.len() as u32;
-                                col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: a_1.col})))});
+                                col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a_1.col})))});
                             }
                             drop(col);
                         },
                         ast::ParentType::Range(a_1, a_2) => {
-                            if a_1.row >= curr_sheet.rows {
+                            
+                            let cell_sheet = { 
+                                if a_1.sheet == a_2.sheet {
+                                    &sheetstore.data[a_1.sheet as usize].borrow()
+                                }
+                                else {
+                                    last_time = 0;
+                                    last_err_msg = String::from("Range addresses must belong to the same sheet.");
+                                    continue 'mainloop
+                                }
+                            };
+
+                            if a_1.row >= cell_sheet.rows {
                                 last_time = 0;
                                 last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
-                            if a_1.col >= curr_sheet.columns {
+                            if a_1.col >= cell_sheet.columns {
                                 last_time = 0;
                                 last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
-                            if a_2.row >= curr_sheet.rows {
+                            if a_2.row >= cell_sheet.rows {
                                 last_time = 0;
                                 last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
-                            if a_2.col >= curr_sheet.columns {
+                            if a_2.col >= cell_sheet.columns {
                                 last_time = 0;
                                 last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
@@ -632,11 +646,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 continue 'mainloop;
                             }
                             for i in a_1.col..=a_2.col {
-                                let mut col = curr_sheet.data[i as usize].borrow_mut();
+                                let mut col = cell_sheet.data[i as usize].borrow_mut();
                                 if col.cells.len() <= a_2.row as usize
                                 {
                                     let mut p = col.cells.len() as u32;
-                                    col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: i})))});
+                                    col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: i})))});
                                 }
                                 drop(col);
                             }
@@ -644,7 +658,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     }
                 }
 
-                let target_cell_rc = Rc::clone(& (curr_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
+                let target_sheet = &sheetstore.data[a.sheet as usize].borrow();
+                let target_cell_rc = Rc::clone(& (target_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
                 let mut target_cell_ref = target_cell_rc.borrow_mut();
                 old_func = (target_cell_ref).cell_func.clone();
                 (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});

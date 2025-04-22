@@ -6,6 +6,7 @@ use logos::Logos;
 pub enum LexicalError {
     InvalidInteger(ParseIntError),
     InternalError(String),
+    SheetNotFoundErr(String),
     #[default]
     InvalidToken,
     
@@ -16,6 +17,8 @@ impl From<ParseIntError> for LexicalError {
         LexicalError::InvalidInteger(err)
     }
 }
+
+
 
 fn parse_local_cell(s: &str) -> Option<(u32, u32)> {
     let (letters, digits) = s.chars()
@@ -71,7 +74,7 @@ pub enum Token {
   
     #[regex("[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_local_cell(lex.slice()))]
     LocalCell((u32, u32)),
-    #[regex("[a-z]+\\.[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_global_cell(lex.slice()))] //NOTE: Sheet names must be lower case in this implementation
+    #[regex("[a-z0-9_]+\\.[A-Z]{1,3}[1-9][0-9]{0,2}", |lex| parse_global_cell(lex.slice()))] //NOTE: Sheet names must be lower case in this implementation
     GlobalCell((String, u32, u32)),
 
     #[token("w")]
