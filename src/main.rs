@@ -359,9 +359,9 @@ fn copy_range_value(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &[Rc<RefCell<Sh
     }
 }
 
-fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &[Rc<RefCell<Sheet>>])
+fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
 {
-    let sheet_ref = &sheets[addr1.sheet as usize];
+    let sheet_ref = Rc::clone(&sheets[addr1.sheet as usize]);
     let sheet = sheet_ref.borrow();
     let column_ref = &sheet.data[addr1.col as usize];
     let column = column_ref.borrow();
@@ -370,7 +370,7 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &[Rc<RefCell<Sheet>>])
     let cell = cell_rc.borrow();
     let func = cell.cell_func.clone();
     
-    let sheet_ref2 = &sheets[addr2.sheet as usize];
+    let sheet_ref2 = Rc::clone(&sheets[addr2.sheet as usize]);
     let sheet2 = sheet_ref2.borrow();
     let column_ref2 = &sheet2.data[addr2.col as usize];
     let column2 = column_ref2.borrow();
@@ -379,9 +379,19 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &[Rc<RefCell<Sheet>>])
     let mut cell2 = cell_rc2.borrow_mut();
     
     cell2.cell_func = func; 
+    let temp = evaluate(sheets, &addr2, &cell2.cell_func.clone());
+    if let Ok(_) = temp
+    {
+        cell2.valid = true;
+    }
+    else
+    {
+        cell2.valid = false;
+    }
+
 }
 
-fn copy_range_function(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &[Rc<RefCell<Sheet>>])
+fn copy_range_function(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &mut [Rc<RefCell<Sheet>>])
 {
     let mut n = 0;
     let mut m = 0;
@@ -770,17 +780,14 @@ fn invalidate_children(sheets: &mut [Rc<RefCell<Sheet>>], cell_addr: Addr)      
 }
 
 
-fn undo(sheets: &mut [Rc<RefCell<Sheet>>],history: &[(Addr, Option<CellFunc> /* old func */, Option<CellFunc> /* new func */)], index: i32) -> Result<(Addr,Option<CellFunc>),String>
+fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(Addr, Option<CellFunc> /* old func */, Option<CellFunc> /* new func */)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, Option<CellFunc>)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
 {
-    if index == 0
+    let temp = undo_history.last();
+    if temp.is_none()
     {
-        return Err("Already at the oldest change".to_string());
+        return Err("Already at the earliest change".to_string());
     }
-    if !(index < history.len() as i32) {
-        println!("Assertion failed: index ({}) is not less than history length ({})", index, history.len());
-        assert!(index < history.len() as i32);
-    }
-    let (addr, old_func, new_func) = history[index as usize].clone();
+    let (addr, old_func, new_func) = temp.unwrap().clone();
     let sheet_ref = &sheets[addr.sheet as usize];
     let sheet = sheet_ref.borrow();
     let column_ref = &sheet.data[addr.col as usize];
@@ -789,7 +796,7 @@ fn undo(sheets: &mut [Rc<RefCell<Sheet>>],history: &[(Addr, Option<CellFunc> /* 
     // drop(column);
     let mut cell = cell_rc.borrow_mut();
     let old_function = new_func.clone();
-    if let Some(func) = old_func
+    if let Some(func) = old_func.clone()
     {
         cell.cell_func = Some(func);
     }
@@ -797,16 +804,24 @@ fn undo(sheets: &mut [Rc<RefCell<Sheet>>],history: &[(Addr, Option<CellFunc> /* 
     {
         cell.cell_func = None;
     }
+    redo_history.push((addr.clone(),old_func.clone(),new_func.clone()));
+    undo_history.pop();
+    if redo_history.len() > settings.undo_history_limit as usize
+    {
+        redo_history.remove(0);
+    }
+
     Ok((cell.addr.clone(),old_function))
 }
-fn redo(sheets: &mut [Rc<RefCell<Sheet>>], history: &[(Addr, Option<CellFunc>, Option<CellFunc>)], index: i32) -> Result<(Addr,Option<CellFunc>),String>
+
+fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(Addr, Option<CellFunc>, Option<CellFunc> )>, redo_history: &mut Vec<(Addr, Option<CellFunc>, Option<CellFunc>)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
 {
-    if index == history.len() as i32 - 1
+    let temp = redo_history.last();
+    if temp.is_none()
     {
         return Err("Already at the latest change".to_string());
     }
-    assert!(index < history.len() as i32);
-    let (addr, old_func, new_func) = history[index as usize].clone();
+    let (addr, old_func, new_func) = temp.unwrap().clone();
     let sheet_ref = &sheets[addr.sheet as usize];
     let sheet = sheet_ref.borrow();
     let column_ref = &sheet.data[addr.col as usize];
@@ -814,14 +829,20 @@ fn redo(sheets: &mut [Rc<RefCell<Sheet>>], history: &[(Addr, Option<CellFunc>, O
     let cell_rc = Rc::clone(&column[addr.row as usize]);
     // drop(column);
     let mut cell = cell_rc.borrow_mut();
-    let old_function = old_func;
-    if let Some(func) = new_func
+    let old_function = old_func.clone();
+    if let Some(func) = new_func.clone()
     {
         cell.cell_func = Some(func);
     }
     else
     {
         cell.cell_func = None;
+    }
+    undo_history.push((addr.clone(),old_func.clone(),new_func.clone()));
+    redo_history.pop();
+    if undo_history.len() > settings.undo_history_limit as usize
+    {
+        undo_history.remove(0);
     }
     Ok((cell.addr.clone(),old_function))
 }
@@ -1100,8 +1121,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let settings = Settings::new();
     let mut last_time = 0;
 
-    let mut history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
-    let mut history_index: i32 = -1;
+    let mut undo_history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
+    let mut redo_history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
 
     'mainloop: while !exit {
         let mut start;
@@ -1264,11 +1285,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     ast::OtherCommand::Undo =>
                     {
 
-                        match undo(&mut sheetstore.data, &history, history_index)
+                        match undo(&mut sheetstore.data, &mut undo_history, &mut redo_history, &settings)
                         {
                             Ok((cell_addr,old_function)) =>
                             {
-                                history_index-=1;
                                 start = Instant::now();
                                 // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
                                 if let Err(strr) = evaluate(&mut sheetstore.data, &cell_addr, &old_function)
@@ -1286,11 +1306,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     }
                     ast::OtherCommand::Redo =>
                     {
-                        match redo(&mut sheetstore.data, &history, history_index)
+                        match redo(&mut sheetstore.data, &mut undo_history, &mut redo_history, &settings)
                         {
                             Ok((cell_addr,old_function)) =>
                             {
-                                history_index+=1;
                                 start = Instant::now();
                                 // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
                                 if let Err(strr) = evaluate(&mut sheetstore.data, &cell_addr, &old_function)
@@ -1379,12 +1398,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     },
                     ast::OtherCommand::CopyCellFormulae(addr1, addr2) =>
                     {
-                        copy_cell_function(addr1, addr2,&sheetstore.data);
+                        copy_cell_function(addr1, addr2,&mut sheetstore.data);
                         last_err_msg = String::from("ok");
                     },
                     ast::OtherCommand::CopyRangeFormulae(addr1,addr2, addr3 ) =>
                     {
-                        copy_range_function(addr1, addr2, addr3, &sheetstore.data);
+                        copy_range_function(addr1, addr2, addr3, &mut sheetstore.data);
                         last_err_msg = String::from("ok");
                     },
                     ast::OtherCommand::CopyRangeVals(addr1,addr2, addr3) =>
@@ -1560,12 +1579,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 }
                 else 
                 {
-                    history_index = 10.min(history_index+1);
-                    history.push((address, old_func.clone(), new_function));
-                    if history.len() > settings.undo_history_limit as usize
+                    undo_history.push((address, old_func.clone(), new_function));
+                    if undo_history.len() > settings.undo_history_limit as usize
                     {
-                        history.remove(0);
+                        undo_history.remove(0);
                     }
+                    redo_history.clear();
+                    
                 }              
             }
         }

@@ -11,7 +11,7 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
 // use crate::cell_operations::CellFunc;
-fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
+fn min_eval(sheets: &[Rc<RefCell<Sheet>>], range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     
     // let data = (Rc::clone(&sheets[range.0.sheet as usize])).borrow();
@@ -79,7 +79,7 @@ fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) 
     }
 }
 
-fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
+fn max_eval(sheets: &[Rc<RefCell<Sheet>>], range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
@@ -147,7 +147,7 @@ fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) 
     }
 }
 
-fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
+fn sum_eval(sheets: &[Rc<RefCell<Sheet>>], range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
@@ -209,7 +209,7 @@ fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) 
     }
 }
 
-fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
+fn avg_eval(sheets: &[Rc<RefCell<Sheet>>], range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
@@ -273,7 +273,7 @@ fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) 
     }
 }
 
-fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
+fn stdev_eval(sheets: &[Rc<RefCell<Sheet>>], range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
@@ -380,7 +380,7 @@ fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr
     Ok(ValueType::FloatValue(stdev))
 }
 
-fn count_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
+fn count_eval(sheets: &[Rc<RefCell<Sheet>>], range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
@@ -433,7 +433,7 @@ fn sleep(seconds: f64)
     thread::sleep(Duration::from_secs_f64(seconds));
 }
 
-fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependencies: Vec<ParentType>) -> Result<(),String>       // DEPENDENCIES OF OLD_FUNC
+fn remove_old_dependencies(cell: &Addr,sheets: &mut [Rc<RefCell<Sheet>>], dependencies: Vec<ParentType>) -> Result<(),String>       // DEPENDENCIES OF OLD_FUNC
 {
     for i in dependencies
     {
@@ -506,7 +506,7 @@ fn remove_old_dependencies(cell: &Addr,sheets: &mut Vec<Rc<RefCell<Sheet>>>, dep
 } 
 
 
-fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr>) -> Result<ValueType,String> 
+fn eval(expr: &Expr, sheets: &[Rc<RefCell<Sheet>>], caller_cell: &Option<Addr>) -> Result<ValueType,String> 
 {
     match expr 
     {
@@ -1129,7 +1129,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
 }
 
 // this would be a recursive function just like eval of an ast
-fn calculate(cell_rc:Rc<RefCell<Cell>>, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Result<(),String>
+fn calculate(cell_rc:Rc<RefCell<Cell>>, sheets: &[Rc<RefCell<Sheet>>]) -> Result<(),String>
 {
     let temp: Rc<RefCell<Cell>> = Rc::clone(&cell_rc);
     let mut cell: std::cell::RefMut<'_, Cell> = temp.borrow_mut();
@@ -1166,7 +1166,7 @@ fn calculate(cell_rc:Rc<RefCell<Cell>>, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Res
     }  
 }
 
-fn update_parent_avls(cell:&Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependencies: Vec<ParentType>) -> Result<(),String>
+fn update_parent_avls(cell:&Addr, sheets: &mut [Rc<RefCell<Sheet>>], dependencies: Vec<ParentType>) -> Result<(),String>
 {
     for i in dependencies
     {
@@ -1224,7 +1224,7 @@ fn update_parent_avls(cell:&Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>, dependen
 }
 
 
-fn dfs(sheets: &Vec<Rc<RefCell<Sheet>>>,current_cell: &Addr, visited: &mut HashMap<Addr,bool>, rec_stack: &mut HashMap<Addr,bool>, stack: &mut Vec<Addr>) -> Result<(),String>     
+fn dfs(sheets: &[Rc<RefCell<Sheet>>],current_cell: &Addr, visited: &mut HashMap<Addr,bool>, rec_stack: &mut HashMap<Addr,bool>, stack: &mut Vec<Addr>) -> Result<(),String>     
 {
     rec_stack.insert(current_cell.clone(), true); 
 
@@ -1260,7 +1260,7 @@ fn dfs(sheets: &Vec<Rc<RefCell<Sheet>>>,current_cell: &Addr, visited: &mut HashM
     Ok(())
 }
 
-fn topological_sort(sheets: &Vec<Rc<RefCell<Sheet>>>, addr:&Addr) -> Result<Vec<Addr>,String> 
+fn topological_sort(sheets: &[Rc<RefCell<Sheet>>], addr:&Addr) -> Result<Vec<Addr>,String> 
 {
     let mut visited: HashMap<Addr, bool> = HashMap::new();
     let mut rec_stack: HashMap<Addr, bool> = HashMap::new();
@@ -1270,7 +1270,7 @@ fn topological_sort(sheets: &Vec<Rc<RefCell<Sheet>>>, addr:&Addr) -> Result<Vec<
 }
 
 
-fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), String> 
+fn update_children(sheets: &[Rc<RefCell<Sheet>>], cell: &Addr) -> Result<(), String> 
 {
     let ret = topological_sort(sheets, cell)?;
     // let negative_in_sleep = false;
@@ -1316,7 +1316,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
     
 }
 
-pub fn evaluate(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell: &Addr, old_func: &Option<CellFunc>) -> Result<(), String>   /////// OWNERSHIP NAHI LENI THI!!!!!!!!
+pub fn evaluate(sheets: &mut [Rc<RefCell<Sheet>>], cell: &Addr, old_func: &Option<CellFunc>) -> Result<(), String>   /////// OWNERSHIP NAHI LENI THI!!!!!!!!
 {
     // println!("{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
     let cell_rc = {
