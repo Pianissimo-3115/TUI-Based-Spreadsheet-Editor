@@ -530,9 +530,12 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
             let parent_cell = cell_rc.borrow();
             if !parent_cell.valid 
             {
-                return Err("Cell having an error is used".to_string())
+                Err("Cell having an error is used".to_string())
             }
-            Ok(parent_cell.value.clone())
+            else 
+            {
+                Ok(parent_cell.value.clone())
+            }
         }
         Expr::MonoOp(fun, exp) =>
         {
@@ -1034,6 +1037,16 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                         (_, _) => Err("Concatenation can only be used if both the operands are strings".to_string())
                     }
                 },
+                InfixFunction::IsSubstring =>
+                {
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
+                    match (left, right) 
+                    {
+                        (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::BoolValue(m.contains(&n))),
+                        (_, _) => Err("IsSubstring can only be used if both the operands are strings".to_string())
+                    }
+                }
             }
         }
         Expr::TernaryOp(fun, cond, true_exp, false_exp) =>
@@ -1131,16 +1144,17 @@ fn calculate(cell_rc:Rc<RefCell<Cell>>, sheets: &Vec<Rc<RefCell<Sheet>>>) -> Res
             {
                 cell.valid = false;
                 drop(cell);
-                return Err(err);
+                Err(err)
             }
-            else {
+            else 
+            {
                 let temp = temp.unwrap();
                 cell.value = temp;
                 cell.valid = true;
                 drop(cell);
+                Ok(())
             }
             // cell.value = temp;
-            Ok(())
         }
         None => 
         {
@@ -1260,6 +1274,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
 {
     let ret = topological_sort(sheets, cell)?;
     // let negative_in_sleep = false;
+    let mut error: Result<(), String> = Err("".to_string());
     for i in ret.iter().rev()
     {
         let sheet_ref = &(*sheets)[i.sheet as usize];
@@ -1283,10 +1298,20 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
         // }
         if checker
         {
-            calculate(cell_rc, sheets)?;
+            error = calculate(cell_rc, sheets);
         }
     }
-
+    if let Err(err) = error
+    {
+        if err == ""
+        {
+            return Ok(());
+        }
+        else 
+        {
+            return Err(err);
+        }
+    }
     Ok(())
     
 }

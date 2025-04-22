@@ -195,4 +195,5 @@ pub enum InfixFunction {
     // Not,
     
     Concat,
+    IsSubstring
 }
