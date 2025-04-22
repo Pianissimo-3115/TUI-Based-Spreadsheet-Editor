@@ -12,7 +12,3 @@ ML agar time bacha to
 
 
 
-
-undo redo correct karna h
-copy cell formula mei value change nhi ho rhi
-copy cell formula mei parent avls etc mei kuch nhi ho raha

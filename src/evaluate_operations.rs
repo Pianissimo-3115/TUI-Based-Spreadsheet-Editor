@@ -1329,6 +1329,7 @@ pub fn evaluate(sheets: &mut [Rc<RefCell<Sheet>>], cell: &Addr, old_func: &Optio
     };
     // println!("{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
     let curr_cell = cell_rc.borrow();
+    println!("inside evaluate: {} {}", curr_cell.addr.row, curr_cell.addr.col);
     // let roww = curr_cell.addr.row.clone();
     // let coll = curr_cell.addr.col.clone();
     // println!("2{}", Rc::clone(& (&sheets[0].borrow().data[cell.col as usize].borrow_mut()[cell.row as usize])).try_borrow_mut().is_ok());
