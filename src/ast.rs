@@ -56,20 +56,20 @@ pub enum OtherCommand {
     // RemoveRow(i32),
     // RemoveCol(i32),
 
-    CopyCellVals(Addr),
-    CopyRangeVals(Addr),
-    CopyCellFormulae(Addr),
-    CopyRangeFormulae(Addr),
+    CopyCellVals(Addr, Addr),
+    CopyRangeVals(Addr, Addr, Addr),
+    CopyCellFormulae(Addr, Addr),
+    CopyRangeFormulae(Addr, Addr, Addr),
 
-    Autofill_ap(),
-    Autofill_gp(),
+    AutofillAp(Addr, Addr),
+    AutofillGp(Addr, Addr),
 
     ExportCsv(String),
     LoadCsv(String, Option<String>), //File, SheetName
     Resize(String, usize, usize)
-    //Graph ke commands daal
-    //ML wale commands daal
-    //
+    //Graph ke commands daal dena @ExactHarmony917
+    //ML wale commands daal dena @ExactHarmony917
+    
 
 }
 

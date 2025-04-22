@@ -40,6 +40,14 @@ extern {
     "RemoveSheet" => Token::RemoveSheet,
     "RenameSheet" => Token::RenameSheet,
     "DuplicateSheet" => Token::DuplicateSheet,
+    "AutofillAp" => Token::AutofillAp,
+    "AutofillGp" => Token::AutofillGp,
+    "Undo" => Token::Undo,
+    "Redo" => Token::Redo,
+    "CopyCellValue" => Token::CopyCellValue,
+    "CopyCellFormula" => Token::CopyCellFormula,
+    "CopyRangeValues" => Token::CopyRangeValues,
+    "CopyRangeFormulas" => Token::CopyRangeFormulas,
   }
 }
 
@@ -60,7 +68,7 @@ Addr: Addr = {
         Addr{sheet: curr_sheet, col, row} },  //NOTE: Why am I doing Box::new everywhere?. Also, how come tokens returns Option<_> but stufff is working?!?
     <scr: "globalcell"> =>? { 
         let (sheet, col, row) = scr;
-        let sheet_num_opt = sheetstore.numFromName(&sheet);
+        let sheet_num_opt = sheetstore.num_from_name(&sheet);
         if let Some(sheet_num) = sheet_num_opt {
             Ok(Addr{sheet: sheet_num as u32, col, row}) 
         }
@@ -90,7 +98,29 @@ OtherCommand: (OtherCommand, Vec<ParentType>) = {
     "RenameSheet" Ws <s1: "str"> Ws <s2: "str"> => (OtherCommand::RenameSheet(s1, s2), vec![]),
     "DuplicateSheet" Ws <s1: "str"> Ws <s2: "str"> => (OtherCommand::DuplicateSheet(s1, Some(s2)), vec![]),
     "DuplicateSheet" Ws <s1: "str"> => (OtherCommand::DuplicateSheet(s1, None), vec![]),
+    "AutofillAp" Ws <s: Addr> Ws <e: Addr> => (OtherCommand::AutofillAp(s.clone(), e.clone()), vec![ParentType::Range(s, e)]),
+    "AutofillGp" Ws <s: Addr> Ws <e: Addr> => (OtherCommand::AutofillGp(s.clone(), e.clone()), vec![ParentType::Range(s, e)]),
+    "Undo" => (OtherCommand::Undo, vec![]),
+    "Redo" => (OtherCommand::Redo, vec![]),
+    "CopyCellValue" Ws <s: Addr> Ws <e: Addr> => (OtherCommand::CopyCellVals(s.clone(), e.clone()), vec![ParentType::Single(s), ParentType::Single(e)]),
+    "CopyCellFormula" Ws <s: Addr> Ws <e: Addr> => (OtherCommand::CopyCellFormulae(s.clone(), e.clone()), vec![ParentType::Single(s), ParentType::Single(e)]),
+    "CopyRangeValues" Ws <s1: Addr> Ws <e1: Addr> Ws <s2: Addr> => 
+    {
+        let row_diff = e1.row - s1.row;
+        let col_diff = e1.col - s1.col;
+        let e2 = Addr{sheet: s2.sheet, col: s2.col + col_diff, row: s2.row + row_diff};
+        (OtherCommand::CopyRangeVals(s1.clone(), e1.clone(), s2.clone()), vec![ParentType::Range(s1, e1), ParentType::Range(s2, e2)])
+    },
+    "CopyRangeFormulas" Ws <s1: Addr> Ws <e1: Addr> Ws <s2: Addr> => 
+    {
+        let row_diff = e1.row - s1.row;
+        let col_diff = e1.col - s1.col;
+        let e2 = Addr{sheet: s2.sheet, col: s2.col + col_diff, row: s2.row + row_diff};
+        (OtherCommand::CopyRangeFormulae(s1.clone(), e1.clone(), s2.clone()), vec![ParentType::Range(s1, e1), ParentType::Range(s2, e2)])
+    }
+
 } 
+
 
 Ws: () = {
     "Ws" => ()

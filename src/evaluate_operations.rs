@@ -11,7 +11,7 @@ use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
 // use crate::cell_operations::CellFunc;
-fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
+fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     
     // let data = (Rc::clone(&sheets[range.0.sheet as usize])).borrow();
@@ -38,7 +38,7 @@ fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = *cond.clone();
+            let cond_clone = cond.clone();
             let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
@@ -79,7 +79,7 @@ fn min_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
     }
 }
 
-fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
+fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
@@ -106,7 +106,7 @@ fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = *cond.clone();
+            let cond_clone = cond.clone();
             let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
@@ -147,7 +147,7 @@ fn max_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
     }
 }
 
-fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
+fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
@@ -174,7 +174,7 @@ fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = *cond.clone();
+            let cond_clone = cond.clone();
             let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
@@ -209,7 +209,7 @@ fn sum_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
     }
 }
 
-fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
+fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
@@ -236,7 +236,7 @@ fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = *cond.clone();
+            let cond_clone = cond.clone();
             let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
@@ -273,7 +273,7 @@ fn avg_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Ex
     }
 }
 
-fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
+fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
@@ -299,7 +299,7 @@ fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = *cond.clone();
+            let cond_clone = cond.clone();
             let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
@@ -349,7 +349,7 @@ fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = *cond.clone();
+            let cond_clone = cond.clone();
             let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
@@ -380,7 +380,7 @@ fn stdev_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
     Ok(ValueType::FloatValue(stdev))
 }
 
-fn count_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<Expr>) -> Result<ValueType, String> 
+fn count_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Expr) -> Result<ValueType, String> 
 {
     // let data = Rc::clone(&sheets[range.0.sheet as usize]).borrow();
     let cell1: (u32, u32) = (range.0.row, range.0.col);
@@ -405,7 +405,7 @@ fn count_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
             {
                 return Err(format!("Invalid cell at ({}, {})", col, row));
             }
-            let cond_clone = *cond.clone();
+            let cond_clone = cond.clone();
             let cond_eval = eval(&cond_clone, sheets, &Some(Addr{sheet:range.0.sheet, row, col}))?;
             let cond_bool = match cond_eval 
             {
@@ -425,7 +425,7 @@ fn count_eval(sheets: &Vec<Rc<RefCell<Sheet>>>, range: (Addr, Addr), cond: &Box<
             }      
         }
     }
-    Ok(ValueType::IntegerValue(count as i32))
+    Ok(ValueType::IntegerValue(count))
 }
 
 fn sleep(seconds: f64)
@@ -571,7 +571,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                     match val 
                     {
                         ValueType::BoolValue(b) => Ok(ValueType::BoolValue(!b)),
-                        _ => return Err("Not operator can only be used on boolean values".to_string())
+                        _ => Err("Not operator can only be used on boolean values".to_string())
                     }
                 },
             }
@@ -1090,7 +1090,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                             {
                                 return Err("Negative decimal places".to_string());
                             }
-                            let factor = 10f64.powi(m as i32);
+                            let factor = 10f64.powi(m);
                             Ok(ValueType::FloatValue((n * factor).round() / factor))
                         },
                         _ => Err("Round function takes a float and an integer".to_string())
@@ -1120,7 +1120,7 @@ fn eval(expr: &Expr, sheets: &Vec<Rc<RefCell<Sheet>>>, caller_cell: &Option<Addr
                 }
                 None =>
                 {
-                    return Err("Cannot evaluate wildcard in this context".to_string());
+                    Err("Cannot evaluate wildcard in this context".to_string())
                 }
             }
         }
@@ -1303,7 +1303,7 @@ fn update_children(sheets: &Vec<Rc<RefCell<Sheet>>>, cell: &Addr) -> Result<(), 
     }
     if let Err(err) = error
     {
-        if err == ""
+        if err.is_empty()
         {
             return Ok(());
         }

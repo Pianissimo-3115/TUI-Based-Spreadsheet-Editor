@@ -7,7 +7,7 @@ use lalrpop_util::lalrpop_mod;
 use lalrpop_util::ParseError;
 use logos::Logos;
 use crate::ast::{Expr, Addr, ParentType};
-
+use csv::ReaderBuilder;
 use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
 use crate::evaluate_operations::evaluate;
 // use crate::tokenscmds;
@@ -19,7 +19,6 @@ use std::cmp;
 use std::time::Instant;
 use std::fs::File;
 // use serde::Serialize;
-use csv::Reader;
 
 //NOTE: PLEASE HAR JAGA usize KAR DO, bohot zyada conversions karne pad rahe hai
 
@@ -46,6 +45,12 @@ pub struct SheetStorage {
     pub data: Vec<Rc<RefCell<Sheet>>>   //NOTE: This should be made int Option<Rc<...>>
 }
 
+impl Default for SheetStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SheetStorage {
     pub fn new() -> Self {
         SheetStorage{
@@ -54,25 +59,25 @@ impl SheetStorage {
         }
     }
 
-    pub fn numFromName(&self, name: &str) -> Option<usize> {
+    pub fn num_from_name(&self, name: &str) -> Option<usize> {
         for (curr_name, num) in &self.map {
             if curr_name == name {
                 return Some(*num);
             }
         };
-        return None
+        None
     }
 
-    pub fn NameFromNum(&self, num: usize) -> Option<&String> {
+    pub fn name_from_num(&self, num: usize) -> Option<&String> {
         for (curr_name, number) in &self.map {
             if number == &num {
                 return Some(curr_name);
             }
         };
-        return None
+        None
     }
 
-    pub fn newSheet(&mut self, name: &str, cols: usize, rows: usize) -> Option<usize> {
+    pub fn new_sheet(&mut self, name: &str, cols: usize, rows: usize) -> Option<usize> {
         for (curr_name, _num) in &self.map {
             if curr_name == name {
                 return None;
@@ -82,10 +87,10 @@ impl SheetStorage {
         let new_sheet_ref = RefCell::new(Sheet::new(new_num as u32, cols as u32, rows as u32));
         self.data.push(Rc::new(new_sheet_ref));
         self.map.push((String::from(name), new_num));
-        return Some(new_num)
+        Some(new_num)
     }
 
-    pub fn addSheet(&mut self, name: &str, sheet: Sheet) -> Option<usize> { //Assumes that sheet_idx would be same as data.len()
+    pub fn add_sheet(&mut self, name: &str, sheet: Sheet) -> Option<usize> { //Assumes that sheet_idx would be same as data.len()
         for (curr_name, _num) in &self.map {
             if curr_name == name {
                 return None;
@@ -95,10 +100,10 @@ impl SheetStorage {
         let new_sheet_ref = RefCell::new(sheet);
         self.data.push(Rc::new(new_sheet_ref));
         self.map.push((String::from(name), new_num));
-        return Some(new_num)
+        Some(new_num)
     }
 
-    pub fn removeSheet(&mut self, name: &str) -> Option<usize> {
+    pub fn remove_sheet(&mut self, name: &str) -> Option<usize> {
 
         for i in 0..self.map.len() {
             if self.map[i].0 == name {
@@ -108,20 +113,20 @@ impl SheetStorage {
                 return Some(removed_num)
             }
         };
-        return None;
+        None
     }
-    pub fn renameSheet(&mut self, name: &str, name_new: &str) -> Option<usize> {
+    pub fn rename_sheet(&mut self, name: &str, name_new: &str) -> Option<usize> {
 
         for i in 0..self.map.len() {
             if self.map[i].0 == name {
                 let renamed_num = self.map[i].1;
-                if self.numFromName(name_new).is_none() {
+                if self.num_from_name(name_new).is_none() {
                     self.map[i] = (String::from(name_new), renamed_num);
                     return Some(renamed_num)
                 } else { return None }
             }
         };
-        return None;
+        None
     }
 }
 
@@ -145,7 +150,9 @@ fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
 {
 
     let mut csv_data: Vec<Vec<String>> = vec![];
-    if let Ok(mut rdr) = Reader::from_path(csv_name)
+    if let Ok(mut rdr) = ReaderBuilder::new()
+        .has_headers(false)
+        .from_path(csv_name)
     {
         for result in rdr.records()
         {
@@ -164,7 +171,7 @@ fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
         {
             for col in 0..csv_data[0].len()
             {
-                if csv_data[row][col] == ""
+                if csv_data[row][col].is_empty()
                 {
                     continue;
                 }
@@ -177,21 +184,18 @@ fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
                     cell.valid = true;
                     cell.value = cell_operations::ValueType::IntegerValue(val);
                 }
-
                 else if let Ok(val) = raw_val.parse::<f64>()
                 {
                     cell.cell_func = Some(cell_operations::CellFunc::new(Expr::Float(val)));
                     cell.valid = true;
                     cell.value = cell_operations::ValueType::FloatValue(val);
                 }
-
                 else if let Ok(val) = raw_val.parse::<bool>() 
                 {
                     cell.cell_func = Some(cell_operations::CellFunc::new(Expr::Bool(val)));
                     cell.valid = true;
                     cell.value = cell_operations::ValueType::BoolValue(val);
                 } 
-
                 else 
                 {
                     cell.cell_func = Some(cell_operations::CellFunc::new(Expr::String(raw_val.clone())));
@@ -199,14 +203,14 @@ fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
                     cell.value = cell_operations::ValueType::String(raw_val);
                 }
                 
-                sheet.data[col].borrow_mut().cells[row] = Rc::new(RefCell::new(cell));
+                sheet.data[col].borrow_mut().cells.push(Rc::new(RefCell::new(cell)));
             }
         }
         Ok(sheet)
     }
-    else 
+    else
     {
-        return Err("Error reading csv".to_string());
+        Err("Error reading csv".to_string())
     }
 }
 
@@ -219,7 +223,7 @@ fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String>
         for col in &sheet.data
         {
             csv_data.push(vec![]);
-            if col.borrow().cells.len() == 0
+            if col.borrow().cells.is_empty()
             {
                 for _i in 0..sheet.rows
                 {
@@ -235,7 +239,7 @@ fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String>
                 let row: &Vec<Rc<RefCell<Cell>>> = &col.borrow().cells;
                 for i in 0..curr_rows
                 {
-                    let value = Rc::clone(&row[i as usize]).borrow().value.clone();
+                    let value = Rc::clone(&row[i]).borrow().value.clone();
                     if let Some(last) = csv_data.last_mut()
                     {
                         (*last).push(value.to_string());
@@ -255,22 +259,41 @@ fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String>
         {
             for col in 0..csv_data.len()
             {
-                if csv_data[col][row] == "<EMPTY>"
+                // if csv_data[col][row] == "<EMPTY>"
+                // {
+                //     if let Ok(()) = write!(writer, "{}", "")
+                //     {}
+                //     else 
+                //     {
+                //         return Err("Error in writing csv".to_string());
+                //     }
+                // }
+                // if let Ok(()) = write!(writer, "{}", csv_data[col][row])
+                // {}
+                // else 
+                // {
+                //     return Err("Error in writing csv".to_string());
+                // }
+                // if row != csv_data[0].len()-1
+                // {
+                //     if let Ok(()) = write!(writer, ",")
+                //     {}
+                //     else 
+                //     {
+                //         return Err("Error in writing csv".to_string());
+                //     }
+                // }
+                if csv_data[col][row] != "<EMPTY>"
                 {
-                    if let Ok(()) = write!(writer, "{}", "")
+
+                    if let Ok(()) = write!(writer, "{}", csv_data[col][row])
                     {}
                     else 
                     {
                         return Err("Error in writing csv".to_string());
                     }
                 }
-                if let Ok(()) = write!(writer, "{}", csv_data[col][row])
-                {}
-                else 
-                {
-                    return Err("Error in writing csv".to_string());
-                }
-                if row != csv_data[0].len()-1
+                if col != csv_data.len()-1
                 {
                     if let Ok(()) = write!(writer, ",")
                     {}
@@ -279,6 +302,7 @@ fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String>
                         return Err("Error in writing csv".to_string());
                     }
                 }
+
             }
             if let Ok(()) = writeln!(writer)
             {
@@ -293,12 +317,12 @@ fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String>
     }
     else 
     {
-        return Err("Error in creating csv".to_string());
+        Err("Error in creating csv".to_string())
     }
 }
 
 
-fn copy_cell_value(addr1:Addr, addr2:Addr, sheets: &Vec<Rc<RefCell<Sheet>>>)
+fn copy_cell_value(addr1:Addr, addr2:Addr, sheets: &[Rc<RefCell<Sheet>>])
 {
     let sheet_ref = &sheets[addr1.sheet as usize];
     let sheet = sheet_ref.borrow();
@@ -320,18 +344,22 @@ fn copy_cell_value(addr1:Addr, addr2:Addr, sheets: &Vec<Rc<RefCell<Sheet>>>)
     cell2.value = value;
 }
 
-fn copy_range_value(addr1:Addr, addr2:Addr, sheets: &Vec<Rc<RefCell<Sheet>>>)
+fn copy_range_value(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &[Rc<RefCell<Sheet>>])
 {
-    for i in addr1.col..=addr2.col
+    let mut n = 0;
+    let mut m = 0;
+    for i in addr1.row..=addr2.row
     {
-        for j in addr1.row..=addr2.row
+        for j in addr1.col..=addr2.col
         {
-            copy_cell_value(Addr{sheet: addr1.sheet, row: j, col: i}, Addr{sheet: addr2.sheet, row: j, col: i}, sheets);
+            copy_cell_value(Addr{sheet: addr1.sheet, row: j, col: i}, Addr{sheet: addr3.sheet, row: addr3.row + n, col: addr3.col + m}, sheets);
+            m += 1;
         }
+        n += 1;
     }
 }
 
-fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &Vec<Rc<RefCell<Sheet>>>)
+fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &[Rc<RefCell<Sheet>>])
 {
     let sheet_ref = &sheets[addr1.sheet as usize];
     let sheet = sheet_ref.borrow();
@@ -353,18 +381,22 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &Vec<Rc<RefCell<Sheet>>>)
     cell2.cell_func = func; 
 }
 
-fn copy_range_function(addr1:Addr, addr2:Addr, sheets: &Vec<Rc<RefCell<Sheet>>>)
+fn copy_range_function(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &[Rc<RefCell<Sheet>>])
 {
-    for i in addr1.col..=addr2.col
+    let mut n = 0;
+    let mut m = 0;
+    for i in addr1.row..=addr2.row
     {
-        for j in addr1.row..=addr2.row
+        for j in addr1.col..=addr2.col
         {
-            copy_cell_function(Addr{sheet: addr1.sheet, row: j, col: i}, Addr{sheet: addr2.sheet, row: j, col: i}, sheets);
+            copy_cell_function(Addr{sheet: addr1.sheet, row: j, col: i}, Addr{sheet: addr3.sheet, row: addr3.row + n, col: addr3.col + m}, sheets);
+            m += 1;
         }
+        n += 1;
     }
 }
 
-fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>) -> Result<(),String>
+fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>>]) -> Result<(),String>
 {
     let sheet_ref: &Rc<RefCell<Sheet>> = &sheets[start_addr.sheet as usize];
     let sheet: std::cell::Ref<'_, Sheet> = sheet_ref.borrow();
@@ -386,7 +418,9 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
                     let mut cell = cell_rc.borrow_mut();
-                    cell.value = ValueType::IntegerValue(val1 + common_diff*(row-start_addr.row) as i32);
+                    let val = val1 + common_diff*(row-start_addr.row) as i32;
+                    cell.value = ValueType::IntegerValue(val);
+                    cell.cell_func = Some(CellFunc::new(Expr::Integer(val)));
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
@@ -396,7 +430,9 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
                     let mut cell = cell_rc.borrow_mut();
-                    cell.value = ValueType::FloatValue(val1 as f64 + common_diff*(row-start_addr.row) as f64);
+                    let val = val1 as f64 + common_diff*(row-start_addr.row) as f64;
+                    cell.value = ValueType::FloatValue(val);
+                    cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
@@ -406,7 +442,9 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
                     let mut cell = cell_rc.borrow_mut();
-                    cell.value = ValueType::FloatValue(val1 + common_diff*(row-start_addr.row) as f64);
+                    let val = val1 + common_diff*(row-start_addr.row) as f64;
+                    cell.value = ValueType::FloatValue(val);
+                    cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -416,7 +454,10 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
                     let mut cell = cell_rc.borrow_mut();
-                    cell.value = ValueType::FloatValue(val1 + common_diff*(row-start_addr.row) as f64);
+                    let val = val1 + common_diff*(row-start_addr.row) as f64;
+                    cell.value = ValueType::FloatValue(val);
+                    cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    
                 }
             }
             (_,_) =>
@@ -444,7 +485,9 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::IntegerValue(val1 + common_diff*(col-start_addr.col) as i32);
+                    let val = val1 + common_diff*(col-start_addr.col) as i32;
+                    cell3.value = ValueType::IntegerValue(val);
+                    cell3.cell_func = Some(CellFunc::new(Expr::Integer(val)));
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
@@ -456,7 +499,9 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 as f64 + common_diff*(col-start_addr.col) as f64);
+                    let val = val1 as f64 + common_diff*(col-start_addr.col) as f64;
+                    cell3.value = ValueType::FloatValue(val);
+                    cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
@@ -469,7 +514,9 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 + common_diff*(col-start_addr.col) as f64);
+                    let val = val1 + common_diff*(col-start_addr.col) as f64;
+                    cell3.value = ValueType::FloatValue(val);
+                    cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -482,7 +529,9 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 + common_diff*(col-start_addr.col) as f64);
+                    let val = val1 + common_diff*(col-start_addr.col) as f64;
+                    cell3.value = ValueType::FloatValue(val);
+                    cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (_,_) =>
@@ -500,7 +549,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
 
 
 
-fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<Sheet>>>) -> Result<(),String>
+fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>>]) -> Result<(),String>
 {
     let sheet_ref: &Rc<RefCell<Sheet>> = &sheets[start_addr.sheet as usize];
     let sheet: std::cell::Ref<'_, Sheet> = sheet_ref.borrow();
@@ -531,7 +580,9 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
                     let mut cell = cell_rc.borrow_mut();
-                    cell.value = ValueType::FloatValue(val1 as f64 * common_ratio.powf((row-start_addr.row) as f64));
+                    let val = val1 as f64 * common_ratio.powf((row-start_addr.row) as f64);
+                    cell.value = ValueType::IntegerValue(val as i32);
+                    cell.cell_func = Some(CellFunc::new(Expr::Integer(val as i32)));
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
@@ -541,7 +592,9 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
                     let mut cell = cell_rc.borrow_mut();
-                    cell.value = ValueType::FloatValue(val1 as f64 * common_ratio.powf((row-start_addr.row) as f64));
+                    let val = val1 as f64 * common_ratio.powf((row-start_addr.row) as f64);
+                    cell.value = ValueType::FloatValue(val);
+                    cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
@@ -551,7 +604,9 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
                     let mut cell = cell_rc.borrow_mut();
-                    cell.value = ValueType::FloatValue(val1 * common_ratio.powf((row-start_addr.row) as f64));
+                    let val = val1 * common_ratio.powf((row-start_addr.row) as f64);
+                    cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell.value = ValueType::FloatValue(val);
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -561,7 +616,9 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
                     let mut cell = cell_rc.borrow_mut();
-                    cell.value = ValueType::FloatValue(val1 * common_ratio.powf((row-start_addr.row) as f64));
+                    let val = val1 * common_ratio.powf((row-start_addr.row) as f64);
+                    cell.value = ValueType::FloatValue(val);
+                    cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (_,_) =>
@@ -589,7 +646,9 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 as f64 * (common_diff).powf((col-start_addr.col) as f64));
+                    let val = val1 as f64 * (common_diff).powf((col-start_addr.col) as f64);
+                    cell3.value = ValueType::IntegerValue(val as i32);
+                    cell3.cell_func = Some(CellFunc::new(Expr::Integer(val as i32)));
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
@@ -601,7 +660,9 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 as f64 * (common_diff).powf((col-start_addr.col)as f64));
+                    let val = val1 as f64 * (common_diff).powf((col-start_addr.col) as f64);
+                    cell3.value = ValueType::FloatValue(val);
+                    cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
@@ -614,7 +675,9 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1* common_diff.powf((col-start_addr.col) as f64));
+                    let val = val1 * common_diff.powf((col-start_addr.col) as f64);
+                    cell3.value = ValueType::FloatValue(val);
+                    cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -627,7 +690,9 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
                     let column: std::cell::Ref<'_, cell_operations::Column> = column_ref.borrow();
                     let cell_rc= Rc::clone(&column[start_addr.row as usize]);
                     let mut cell3 = cell_rc.borrow_mut();
-                    cell3.value = ValueType::FloatValue(val1 as f64 * common_diff.powf((col-start_addr.col) as f64));
+                    let val = val1 * common_diff.powf((col-start_addr.col) as f64);
+                    cell3.value = ValueType::FloatValue(val);
+                    cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
                 }
             }
             (_,_) =>
@@ -643,13 +708,13 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut Vec<Rc<RefCell<She
     Ok(())
 }
 
-fn invalidate_children(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell_addr: Addr)       // isko correct karo
+fn invalidate_children(sheets: &mut [Rc<RefCell<Sheet>>], cell_addr: Addr)       // isko correct karo
 {
-    let mut temp;
-    let mut temp1 = &sheets.get(cell_addr.sheet as usize);
-    if let None = temp1
+    let temp: &Rc<RefCell<Sheet>>;
+    let temp1 = &sheets.get(cell_addr.sheet as usize);
+    if temp1.is_none()
     {
-        return ();
+        return;
     }
     else 
     {
@@ -657,26 +722,28 @@ fn invalidate_children(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell_addr: Addr)   
     }
     let sheet_ref = Rc::clone(temp);
     let sheet = sheet_ref.borrow();
-    let column_ref: RefCell<cell_operations::Column> = sheet.data[cell_addr.col as usize];
+    let column_ref = &sheet.data[cell_addr.col as usize];
     // let column_ref  = &sheet.data.get(cell.addr.col as usize);
     let column = column_ref.borrow();
-    temp1 = &column.cells.get(cell_addr.row as usize);
-    if let None = temp1
+    let temp1 = &column.cells.get(cell_addr.row as usize);
+    let temp: &Rc<RefCell<Cell>>;
+    if temp1.is_none()
     {
-        return ();
+        return ;
     }
     else 
     {
         temp = temp1.unwrap();
     }
     let cell_ref = Rc::clone(temp);
-    let mut cell = cell_ref.borrow_mut();
-    for child_addr in &cell.children.iter()
+    let cell = cell_ref.borrow_mut();
+    for child_addr in cell.children.iter()
     {
-        temp1 = &sheets.get(child_addr.sheet as usize);
-        if let None = temp1
+        let temp1: &Option<&Rc<RefCell<Sheet>>> = &sheets.get(child_addr.sheet as usize);
+        let temp: &Rc<RefCell<Sheet>>;
+        if temp1.is_none()
         {
-            return ();
+            return ;
         }
         else 
         {
@@ -684,12 +751,13 @@ fn invalidate_children(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell_addr: Addr)   
         }
         let new_sheet_ref = Rc::clone(temp);
         let new_sheet = new_sheet_ref.borrow();
-        let new_column_ref = new_sheet.data[child_addr.col as usize];
+        let new_column_ref = &new_sheet.data[child_addr.col as usize];
         let new_column = new_column_ref.borrow();
-        temp1 = &new_column.cells.get(child_addr.row as usize);
-        if let None = temp1
+        let temp1 = &new_column.cells.get(child_addr.row as usize);
+        let temp;
+        if temp1.is_none()
         {
-            return ();
+            return ;
         }
         else 
         {
@@ -702,13 +770,16 @@ fn invalidate_children(sheets: &mut Vec<Rc<RefCell<Sheet>>>, cell_addr: Addr)   
 }
 
 
-fn undo(sheets: &mut Vec<Rc<RefCell<Sheet>>>,history: &Vec<(Addr, Option<CellFunc> /* old func */, Option<CellFunc> /* new func */)>, index: u32) -> Result<CellFunc,String>
+fn undo(sheets: &mut [Rc<RefCell<Sheet>>],history: &[(Addr, Option<CellFunc> /* old func */, Option<CellFunc> /* new func */)], index: i32) -> Result<(Addr,Option<CellFunc>),String>
 {
     if index == 0
     {
         return Err("Already at the oldest change".to_string());
     }
-    assert!(index < history.len() as u32);
+    if !(index < history.len() as i32) {
+        println!("Assertion failed: index ({}) is not less than history length ({})", index, history.len());
+        assert!(index < history.len() as i32);
+    }
     let (addr, old_func, new_func) = history[index as usize].clone();
     let sheet_ref = &sheets[addr.sheet as usize];
     let sheet = sheet_ref.borrow();
@@ -726,15 +797,15 @@ fn undo(sheets: &mut Vec<Rc<RefCell<Sheet>>>,history: &Vec<(Addr, Option<CellFun
     {
         cell.cell_func = None;
     }
-    Ok(old_function)
+    Ok((cell.addr.clone(),old_function))
 }
-fn redo(sheets: &mut Vec<Rc<RefCell<Sheet>>>, history: &Vec<(Addr, Option<CellFunc>, Option<CellFunc>)>, index: u32) -> Result<CellFunc,String>
+fn redo(sheets: &mut [Rc<RefCell<Sheet>>], history: &[(Addr, Option<CellFunc>, Option<CellFunc>)], index: i32) -> Result<(Addr,Option<CellFunc>),String>
 {
-    if index == history.len() as u32 - 1
+    if index == history.len() as i32 - 1
     {
         return Err("Already at the latest change".to_string());
     }
-    assert!(index < history.len() as u32);
+    assert!(index < history.len() as i32);
     let (addr, old_func, new_func) = history[index as usize].clone();
     let sheet_ref = &sheets[addr.sheet as usize];
     let sheet = sheet_ref.borrow();
@@ -752,12 +823,12 @@ fn redo(sheets: &mut Vec<Rc<RefCell<Sheet>>>, history: &Vec<(Addr, Option<CellFu
     {
         cell.cell_func = None;
     }
-    Ok(old_function)
+    Ok((cell.addr.clone(),old_function))
 }
 
 
 
-fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sheet_name: String) -> Result<Sheet,String>  // sheet_number and sheet_name correspond to the old sheet that has been copied
+fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize) -> Result<Sheet,String>  // sheet_number and sheet_name correspond to the old sheet that has been copied
 {
     if sheet_number >= sheets.len()
     {
@@ -792,7 +863,7 @@ fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sh
                             parent_cell.children.insert(cell.addr.clone());
                             if a_1.sheet == sheet_number as u32 
                             {
-                                let old_addr = Addr{sheet: sheet_number as u32, row: cell.addr.row as u32, col: cell.addr.col as u32};
+                                let old_addr = Addr{sheet: sheet_number as u32, row: cell.addr.row, col: cell.addr.col};
                                 parent_cell.children.remove(&old_addr);
                             }
                         }
@@ -811,7 +882,7 @@ fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sh
                                     parent_cell.children.insert(cell.addr.clone());
                                     if a_1.sheet == sheet_number as u32 
                                     {
-                                        let old_addr = Addr{sheet: sheet_number as u32, row: j as u32, col: i as u32};
+                                        let old_addr = Addr{sheet: sheet_number as u32, row: j, col: i };
                                         parent_cell.children.remove(&old_addr);
                                     }
                                 }
@@ -842,7 +913,7 @@ fn duplicate_sheet(sheets: &mut Vec<Rc<RefCell<Sheet>>>, sheet_number: usize, sh
 
             for addr in toinsert.iter()
             {
-                let new_addr = Addr{sheet: new_sheet.sheet_idx as u32, row: addr.row as u32, col: addr.col as u32};
+                let new_addr = Addr{sheet: new_sheet.sheet_idx, row: addr.row, col: addr.col};
                 cell.children.insert(new_addr);
             }
             // aur idhar cell_func change karenge
@@ -935,6 +1006,7 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings, showfor
     let row_max = cmp::min(row+10, sheet.rows);
     let col_max = cmp::min(col+10, sheet.columns);
     let width = settings.cell_width as usize;
+    let formula_width = settings.formula_width as usize;
     
     print!("      ");
     for i in col..col_max {
@@ -957,7 +1029,16 @@ fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings, showfor
 
             if showformulas
             {
-                sheet.expr_at(j as usize, i as usize, settings.formula_width as usize);
+                let colref = sheet.data[j as usize].borrow();
+                if i as usize >= colref.cells.len() {
+                    print!("{:>width$}", "~");
+                    continue;
+                }
+                else
+                {
+                    let cell = colref.cells[i as usize].borrow();
+                    print!("{:>formula_width$}", cell.formula);
+                } 
             }
             else
             {
@@ -1005,7 +1086,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     //sheets: &Vec<Rc<RefCell<Sheet>>>
 
     let mut sheetstore = SheetStorage::new();
-    sheetstore.newSheet("sheet0", c as usize, r as usize);
+    sheetstore.new_sheet("sheet0", c as usize, r as usize);
 
     // let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
 
@@ -1020,10 +1101,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut last_time = 0;
 
     let mut history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
-    let mut history_index: u32 = 0;
+    let mut history_index: i32 = -1;
 
     'mainloop: while !exit {
-        let mut start = Instant::now();
+        let mut start;
         if show_window {
             // let curr_sheet = ;
             display_sheet(curr_col as u32, curr_row as u32, &sheetstore.data[curr_sheet_number].borrow(),  &settings, false);
@@ -1040,10 +1121,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         let ast;
         let dep_vec;
 
-        if inp.len() == 0 {
+        if inp.is_empty() {
             continue 'mainloop
         }
-        if inp.chars().next() == Some(':') {
+        if inp.starts_with(':') {
             let inp_smol = inp.chars().skip(1).collect::<String>();
             let lexer = tokenscmds::Token::lexer(&inp_smol).spanned()
             .map(|(token_result, span)| {
@@ -1108,21 +1189,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         // println!("{:?}", dep_vec);
         // println!("{:?}", ast);
 
+        let address: Addr;
+        let new_function: Option<CellFunc>;
         start = Instant::now();
         match ast {
-            ast::Command::OtherCmd(cmd) => { match cmd {
+            ast::Command::OtherCmd(cmd) => { 
+                match cmd 
+                {
                     ast::OtherCommand::AddSheet(s, c, r) => {
-                        let res = sheetstore.newSheet(s.as_str(), c, r);
+                        let res = sheetstore.new_sheet(s.as_str(), c, r);
                         if res.is_none() {
                             last_err_msg = format!("Sheet name \"{}\" already exists.", s);
                         }
                         else { last_err_msg = String::from("ok") }
                     }
                     ast::OtherCommand::RemoveSheet(s) => {
-                        if let Some(sheet_num) = sheetstore.numFromName(s.as_str())
+                        if let Some(sheet_num) = sheetstore.num_from_name(s.as_str())
                         {
-                            let sheet_ref = &sheetstore.data[sheet_num as usize];
-                            let sheet = sheet_ref.borrow();
+                            let sheet_rc = Rc::clone(&sheetstore.data[sheet_num]);
+                            let sheet = sheet_rc.borrow();
                             let num_rows = sheet.rows;
                             let num_cols = sheet.columns;
                             for i in 0..num_cols
@@ -1138,13 +1223,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 }
                             }
                         }
-                        let res = sheetstore.removeSheet(s.as_str());
+                        let res = sheetstore.remove_sheet(s.as_str());
                         if res.is_none() {
                             last_err_msg = format!("Sheet name \"{}\" not found.", s);
                         } else { last_err_msg = String::from("ok") }
                     }
                     ast::OtherCommand::RenameSheet(s, snew) => {
-                        let res = sheetstore.renameSheet(s.as_str(), snew.as_str());
+                        let res = sheetstore.rename_sheet(s.as_str(), snew.as_str());
                         if res.is_none() {
                             last_err_msg = format!("Either Sheet name \"{}\" not found OR Sheet name \"{}\" already exists.", s, snew);
                         } else { last_err_msg = String::from("ok") }
@@ -1155,20 +1240,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             Some(x) => x,
                             None => format!("{}-copy", s)
                         };
-                        let res = sheetstore.numFromName(s.as_str());
+                        let res = sheetstore.num_from_name(s.as_str());
                         if res.is_none() 
                         {
                             last_err_msg = format!("Sheet name \"{}\" not found.", s);
                         } 
                         else 
                         {
-                            let sheet_num = res.unwrap() as usize;
-                            let res2 = duplicate_sheet(&mut sheetstore.data, sheet_num, snew.clone());
+                            let sheet_num = res.unwrap();
+                            let res2 = duplicate_sheet(&mut sheetstore.data, sheet_num);
                             if let Ok(new_sheet) = res2 
                             {
                                 last_err_msg = String::from("ok");
                                 // sheetstore.renameSheet(s.as_str(), &snew).unwrap();
-                                sheetstore.addSheet(snew.as_str(), new_sheet); 
+                                sheetstore.add_sheet(snew.as_str(), new_sheet); 
                             } 
                             else 
                             {
@@ -1181,12 +1266,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
                         match undo(&mut sheetstore.data, &history, history_index)
                         {
-                            Ok(old_function) =>
+                            Ok((cell_addr,old_function)) =>
                             {
                                 history_index-=1;
                                 start = Instant::now();
                                 // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
-                                if let Err(strr) = evaluate(&mut sheetstore.data, &a, &old_function)
+                                if let Err(strr) = evaluate(&mut sheetstore.data, &cell_addr, &old_function)
                                 {
                                     last_time = start.elapsed().as_secs();
                                     last_err_msg = strr;
@@ -1201,14 +1286,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     }
                     ast::OtherCommand::Redo =>
                     {
-                        match redo(&mut sheetstore.data, &history, history_index.clone())
+                        match redo(&mut sheetstore.data, &history, history_index)
                         {
-                            Ok(old_function) =>
+                            Ok((cell_addr,old_function)) =>
                             {
                                 history_index+=1;
                                 start = Instant::now();
                                 // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
-                                if let Err(strr) = evaluate(&mut sheetstore.data, &a, &old_function)
+                                if let Err(strr) = evaluate(&mut sheetstore.data, &cell_addr, &old_function)
                                 {
                                     last_time = start.elapsed().as_secs();
                                     last_err_msg = strr;
@@ -1222,11 +1307,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         }
                     }
                     ast::OtherCommand::ExportCsv(s) => {
-                        let s_num = sheetstore.numFromName(s.as_str());
+                        let s_num = sheetstore.num_from_name(s.as_str());
                         match s_num {
                             Some(x) => {
-                                export_csv(&sheetstore.data[x].borrow(), s.as_str());
-                                last_err_msg = String::from("ok");
+
+                                let imp_result = export_csv(&sheetstore.data[x].borrow(), s.as_str());
+                                match imp_result {
+                                    Ok(()) => {//Since we have alreayd verified that name does not exist already, this should happen successfully
+                                        last_err_msg = String::from("ok");
+                                    },
+                                    Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                                }
                             }
                             None => last_err_msg = format!("Sheet name \"{}\" not found.", s)
                         }
@@ -1238,11 +1329,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 let name_opt = path.strip_suffix(".csv");
                                 match name_opt {
                                     Some(name) => {
-                                        if sheetstore.numFromName(name).is_none() {
+                                        if sheetstore.num_from_name(name).is_none() {
                                             let imp_result = import_csv(&path, sheetstore.data.len() as u32);
                                             match imp_result {
                                                 Ok(x) => {
-                                                    sheetstore.addSheet(name, x); //Since we have alreayd verified that name does not exist already, this should happen successfully
+                                                    sheetstore.add_sheet(name, x); //Since we have alreayd verified that name does not exist already, this should happen successfully
                                                     last_err_msg = String::from("ok");
                                                 },
                                                 Err(e) => last_err_msg = format!("Error occured during import: {}", e)
@@ -1256,11 +1347,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 }
                             },
                             Some(name) => {
-                                if sheetstore.numFromName(name.as_str()).is_none() {
-                                    let imp_result = import_csv(name.as_str(), sheetstore.data.len() as u32);
+                                if sheetstore.num_from_name(name.as_str()).is_none() {
+                                    let imp_result = import_csv(&path, sheetstore.data.len() as u32);
                                     match imp_result {
                                         Ok(x) => {
-                                            sheetstore.addSheet(name.as_str(), x); //Since we have alreayd verified that name does not exist already, this should happen successfully
+                                            sheetstore.add_sheet(name.as_str(), x); //Since we have alreayd verified that name does not exist already, this should happen successfully
                                             last_err_msg = String::from("ok");
                                         },
                                         Err(e) => last_err_msg = format!("Error occured during import: {}", e)
@@ -1273,14 +1364,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         }
                     },
                     ast::OtherCommand::Resize(s, c, r) => {
-                        match sheetstore.numFromName(s.as_str()) {
+                        match sheetstore.num_from_name(s.as_str()) {
                             Some(sheet_num) => {
                                 sheetstore.data[sheet_num].borrow_mut().resize(r, c);  //NOTE: r aur c ka order har jag asame kar dena chahiye ajeeb lag raha
                                 last_err_msg = String::from("ok");
                             } 
                             None => last_err_msg = format!("Sheet name \"{}\" not found.", s)
                         }
-                    }  
+                    },
+                    ast::OtherCommand::CopyCellVals(addr1, addr2) =>
+                    {
+                        copy_cell_value(addr1, addr2,&sheetstore.data);
+                        last_err_msg = String::from("ok");
+                    },
+                    ast::OtherCommand::CopyCellFormulae(addr1, addr2) =>
+                    {
+                        copy_cell_function(addr1, addr2,&sheetstore.data);
+                        last_err_msg = String::from("ok");
+                    },
+                    ast::OtherCommand::CopyRangeFormulae(addr1,addr2, addr3 ) =>
+                    {
+                        copy_range_function(addr1, addr2, addr3, &sheetstore.data);
+                        last_err_msg = String::from("ok");
+                    },
+                    ast::OtherCommand::CopyRangeVals(addr1,addr2, addr3) =>
+                    {
+                        copy_range_value(addr1, addr2,addr3, &sheetstore.data);
+                        last_err_msg = String::from("ok");
+                    },
+                    ast::OtherCommand::AutofillAp(addr1,addr2) =>
+                    {
+                        let res = autofill_ap(addr1, addr2, &mut sheetstore.data);
+                        match res {
+                            Ok(_) => last_err_msg = String::from("ok"),
+                            Err(e) => last_err_msg = format!("Error occured during autofill: {}", e)
+                        }
+                    }
+                    ast::OtherCommand::AutofillGp(addr1, addr2) =>
+                    {
+                        let res = autofill_gp(addr1, addr2, &mut sheetstore.data);
+                        match res {
+                            Ok(_) => last_err_msg = String::from("ok"),
+                            Err(e) => last_err_msg = format!("Error occured during autofill: {}", e)
+                        }
+                    }
                 };
                 continue
             }
@@ -1309,6 +1436,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 }},
             ast::Command::Quit => exit = true,
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
+
                 let old_func: Option<CellFunc>;
                 {
                     let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
@@ -1413,9 +1541,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     let mut target_cell_ref = target_cell_rc.borrow_mut();
                     old_func = (target_cell_ref).cell_func.clone();
                     (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});
-                    let new_function = target_cell_ref.cell_func.clone();
-                    let address = target_cell_ref.addr.clone();
+                    new_function = target_cell_ref.cell_func.clone();
+                    address = target_cell_ref.addr.clone();
                     // println!("{}", target_cell_rc.try_borrow_mut().is_ok());
+                    if let Some(eq_index) = inp.find('=') {
+                        target_cell_ref.formula = inp[eq_index + 1..].trim().to_string();
+                    }
                     drop(target_cell_ref);
 
                 }
@@ -1431,7 +1562,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 {
                     history_index = 10.min(history_index+1);
                     history.push((address, old_func.clone(), new_function));
-                    if history.len() > settings.undo_history_limit
+                    if history.len() > settings.undo_history_limit as usize
                     {
                         history.remove(0);
                     }

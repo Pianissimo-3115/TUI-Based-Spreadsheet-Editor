@@ -89,6 +89,7 @@ impl CellFunc
 pub struct Cell 
 {
     pub addr: Addr,
+    pub formula: String, 
     pub value: ValueType,
     pub cell_func: Option<CellFunc>,
     pub children: BTreeSet<Addr>, // USE OF Weak<T> is DOUBTFUL
@@ -102,6 +103,7 @@ impl Cell
         Cell 
         {
             addr,
+            formula: "0".to_string(), 
             value: ValueType::IntegerValue(0),
             cell_func: None,
             valid: true,
@@ -165,21 +167,21 @@ impl Column
         return self.cells[row].borrow().value.clone() //NOTE: Doing clone here cause bohot koshish ke baad mujhse references nahi bheja gaya. Chota struct hai to farak nahi padna chahiye.
     }
 
-    fn expr_at(&self,row: usize, formula_width: usize)
-    {
-        if row >= self.cells.len()
-        {
-            print!("");
-        }
-        if let Some(cell_func) = &self.cells[row].borrow().cell_func 
-        {
-            print!("{:>formula_width$}", cell_func.expression);
-        } 
-        else 
-        {
-            print!(""); 
-        }
-    }
+    // fn expr_at(&self,row: usize, formula_width: usize)
+    // {
+    //     if row >= self.cells.len()
+    //     {
+    //         print!("");
+    //     }
+    //     if let Some(cell_func) = &self.cells[row].borrow().cell_func 
+    //     {
+    //         print!("{:>formula_width$}", cell_func.expression);
+    //     } 
+    //     else 
+    //     {
+    //         print!(""); 
+    //     }
+    // }
 }
 
 
@@ -230,9 +232,9 @@ impl Sheet
         self.data[col].borrow().val_at(row)
     }
 
-    pub fn expr_at(&self, col: usize, row: usize, formula_width : usize)
-    {
-        self.data[col].borrow().expr_at(row, formula_width);
-    }
+    // pub fn expr_at(&self, col: usize, row: usize, formula_width : usize)
+    // {
+    //     self.data[col].borrow().expr_at(row, formula_width);
+    // }
 
 }

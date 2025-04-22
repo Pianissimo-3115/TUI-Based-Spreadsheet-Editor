@@ -111,8 +111,22 @@ pub enum Token {
     RenameSheet,
     #[token("dup_sheet")]
     DuplicateSheet,
-
-
+    #[token("autofill_ap")]
+    AutofillAp,
+    #[token("autofill_gp")]
+    AutofillGp,
+    #[token("undo")]
+    Undo,
+    #[token("redo")]
+    Redo,
+    #[token("copy_cell_value")]
+    CopyCellValue,
+    #[token("copy_cell_formula")]
+    CopyCellFormula,
+    #[token("copy_range_values")]
+    CopyRangeValues,
+    #[token("copy_range_formulas")]
+    CopyRangeFormulas,
 }
 
 //Below is copy paste from lalrpop tutorial:

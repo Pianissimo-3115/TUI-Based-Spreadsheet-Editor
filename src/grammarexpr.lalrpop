@@ -187,7 +187,7 @@ Addr: Addr = {
         Addr{sheet: curr_sheet, col, row} },  //NOTE: Why am I doing Box::new everywhere?. Also, how come tokens returns Option<_> but stufff is working?!?
     <scr: "globalcell"> =>? { 
         let (sheet, col, row) = scr;
-        let sheet_num_opt = sheetstore.numFromName(&sheet);
+        let sheet_num_opt = sheetstore.num_from_name(&sheet);
         if let Some(sheet_num) = sheet_num_opt {
             Ok(Addr{sheet: sheet_num as u32, col, row}) 
         }
