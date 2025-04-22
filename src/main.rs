@@ -1494,7 +1494,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 if col.cells.len() <= a_1.row  as usize
                                 {
                                     let mut p = col.cells.len() as u32;
-                                    col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p, col: a_1.col})))});
+                                    col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p-1, col: a_1.col})))});
                                 }
                                 drop(col);
                             },
