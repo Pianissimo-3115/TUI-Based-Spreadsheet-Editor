@@ -6,6 +6,7 @@ pub mod evaluate_operations;
 pub mod graphic_interface;
 use graphic_interface::CellDetailsWidget;
 use graphic_interface::HistoryWidget;
+use graphic_interface::OutputsWidget;
 use graphic_interface::TabsWidget;
 use lalrpop_util::lalrpop_mod;
 use lalrpop_util::ParseError;
@@ -1154,6 +1155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut historyWidget = HistoryWidget::new();
     let mut tabsWidget = TabsWidget{tabs: vec![], index: 0};
     let mut celldetailsWidget = CellDetailsWidget{};
+    let mut outputsWidget: OutputsWidget = OutputsWidget {};
 
 
 
@@ -1177,9 +1179,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     'mainloop: while !exit {
         let mut start = Instant::now();
-        terminal.draw(|frame| {
-            let [tabs_area, table_details_area, history_area, input_area] = Layout::vertical([Min(3), Percentage(60), Percentage(40), Min(3)]).areas(frame.area());
+        let _ = terminal.draw(|frame| {
+            let [tabs_area, table_details_area, history_output_area, input_area] = Layout::vertical([Min(3), Percentage(60), Percentage(40), Min(3)]).areas(frame.area());
             let [table_area, detail_area] = Layout::horizontal([Percentage(75), Percentage(25)]).areas(table_details_area);
+            let [history_area, output_area] = Layout::horizontal([Percentage(70), Percentage(30)]).areas(history_output_area);
             tabsWidget.tabs = sheetstore.listNames();
             tabsWidget.index = sheetstore.listIndexFromNum(curr_sheet_number).unwrap();  //NOTE: Source of panic.
             tabsWidget.draw(tabs_area, frame, &styleguide);
@@ -1187,6 +1190,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             draw_table(curr_col, curr_row, &sheetstore.data[curr_sheet_number].borrow(), "Spreadsheet", table_area, frame, &styleguide);
             historyWidget.draw(history_area, frame, &styleguide);
             inputWidget.draw(input_area, frame, &styleguide);
+            outputsWidget.draw_idle(output_area, frame, &styleguide);
         });
         let mut inp: String = String::new();
 

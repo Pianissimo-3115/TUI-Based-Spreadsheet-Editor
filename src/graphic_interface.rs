@@ -9,14 +9,15 @@ use crossterm::{
 };
 
 use ratatui::text::Text;
+use ratatui::widgets::Dataset;
 use ratatui::{
     backend::CrosstermBackend,
     Terminal, Frame,
     text::{Line, Masked, Span},
-    widgets::{Table, Row, Cell, Block, Borders, Paragraph, ScrollbarState, Scrollbar, ScrollbarOrientation, Tabs},
+    widgets::{Table, Row, Cell, Block, Borders, Paragraph, ScrollbarState, Scrollbar, ScrollbarOrientation, Tabs, Axis, Chart, GraphType, Wrap},
     layout::{Constraint, Direction, Layout, Rect, Position, Margin},
     style::{Style, Color, palette::tailwind, Stylize},
-    symbols::scrollbar,
+    symbols::{self, Marker}
 };
 
 pub struct StyleGuide {
@@ -297,6 +298,88 @@ impl CellDetailsWidget {
 }
 
 
+pub struct OutputsWidget {
+}
+
+
+impl OutputsWidget {
+
+    pub fn draw_chart(&mut self, col1: usize, row_start1:usize, row_end1: usize, col2: usize, row_start2:usize, row_end2: usize, xlabel: String, ylabel: String, sheet: &Sheet, area: Rect, frame: &mut Frame, styleguide: &StyleGuide, ) {
+        
+        let mut data: Vec<(f64,f64)> = vec![];
+        for i in 0..=row_end1-row_start1 {
+            let val1: f64;
+            let val2: f64;
+
+            let colref1 = sheet.data[col1].borrow();
+            let cell1 = colref1.cells[row_start1 + i].borrow();
+            if cell1.valid {
+                let val =  &cell1.value;
+                match val {
+                    ValueType::BoolValue(b) => val1 = 0.0,
+                    ValueType::IntegerValue(x) => val1 = x.clone() as f64,
+                    ValueType::FloatValue(n) => val1 = *n,
+                    ValueType::String(s) => val1 = 0.0,
+                }
+            }
+            else { val1 = 0.0 };
+
+            let colref2 = sheet.data[col2].borrow();
+            let cell2 = colref2.cells[row_start2 + i].borrow();
+            if cell2.valid {
+                let val =  &cell2.value;
+                match val {
+                    ValueType::BoolValue(b) => val2 = 0.0,
+                    ValueType::IntegerValue(x) => val2 = x.clone() as f64,
+                    ValueType::FloatValue(n) => val2 = *n,
+                    ValueType::String(s) => val2 = 0.0,
+                }
+            }
+            else { val2 = 0.0 };
+            data.push((val1, val2));
+        }
+        
+        
+        let dataset = Dataset::default()
+            .name("Values")
+            .marker(Marker::Dot)
+            .graph_type(GraphType::Scatter)
+            .style(Style::new().cyan())
+            .data(&data);
+
+        let chart = Chart::new(vec![dataset])
+        .block(Block::bordered().title(Line::from("Scatter chart").cyan().bold().centered()))
+        .x_axis(
+            Axis::default()
+                .title("Year")
+                .style(Style::default().fg(Color::Gray))
+        )
+        .y_axis(
+            Axis::default()
+                .title("Cost")
+                .style(Style::default().fg(Color::Gray))
+
+        );
+        frame.render_widget(chart, area);
+    }
+
+    pub fn draw_idle(&mut self, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) {
+        let paragraph = Paragraph::new(Line::from("Nothing to see.."))
+        .block(Block::bordered().title("Output"))
+        .centered();
+    
+        frame.render_widget(paragraph, area);
+    }
+
+    pub fn draw_text(&mut self, text: String, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) {
+        let paragraph = Paragraph::new(Line::from(text))
+        .block(Block::bordered().title("Output"))
+        .wrap(Wrap { trim: true });
+
+        frame.render_widget(paragraph, area);
+    }
+}
+
 
 
 
@@ -377,7 +460,6 @@ pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect
             } else {
                 styleguide.table_odd_row
             };
-
             let cells = row.into_iter().map(Cell::from);
             Row::new(cells).style(style)
         })
