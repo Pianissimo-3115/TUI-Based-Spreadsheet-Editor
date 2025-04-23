@@ -1672,7 +1672,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             Ok(_) => last_err_msg = String::from("ok"),
                             Err(e) => last_err_msg = format!("Error occured during autofill: {}", e)
                         }
-                    }
+                    },
                     ast::OtherCommand::AutofillGp(addr1, addr2) =>
                     {
                         let res = autofill_gp(addr1, addr2, &mut sheetstore.data);
@@ -1680,7 +1680,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             Ok(_) => last_err_msg = String::from("ok"),
                             Err(e) => last_err_msg = format!("Error occured during autofill: {}", e)
                         }
+                    },
+                    ast::OtherCommand::MakeChart(addr1,addr2,addr3,addr4 ) =>
+                    {
+                        if addr1.sheet == addr2.sheet && addr3.sheet == addr4.sheet 
+                        {
+                            if addr1.col - addr2.col == 0 && addr3.col - addr4.col == 0
+                            {
+                                if addr2.row - addr1.row == addr4.row - addr3.row 
+                                {
+                                    
+                                }
+                                else 
+                                {
+                                    last_err_msg = String::from("The given ranges are not of the same length")
+                                }
+                            }
+                            else 
+                            {
+                                last_err_msg = String::from("The given ranges are not 1 dimensional")
+                            }
+                        }
+                        else
+                        {
+                            last_err_msg = String::from("The given ranges are not in the same sheet")
+                        }
                     }
+                
                 };
                 historyWidget.history.push((inp.clone(), last_err_msg.clone()));
                 historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);

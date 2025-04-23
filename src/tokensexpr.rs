@@ -92,6 +92,8 @@ pub enum Token {
     Not,
     #[token("ROUND")]
     Round,
+    #[token("isSubstr")]
+    IsSubstr,
     #[token("COUNT")]
     Count,
     #[token("IFELSE")]
@@ -141,6 +143,7 @@ pub enum Token {
 
     #[token("^")]
     OperatorConcat,
+    
 
     #[token(":")]
     Colon,

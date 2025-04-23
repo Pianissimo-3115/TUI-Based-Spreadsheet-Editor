@@ -1037,16 +1037,7 @@ fn eval(expr: &Expr, sheets: &[Rc<RefCell<Sheet>>], caller_cell: &Option<Addr>) 
                         (_, _) => Err("Concatenation can only be used if both the operands are strings".to_string())
                     }
                 },
-                InfixFunction::IsSubstring =>
-                {
-                    let left = eval(exp1, sheets, caller_cell)?;
-                    let right = eval(exp2, sheets, caller_cell)?;
-                    match (left, right) 
-                    {
-                        (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::BoolValue(m.contains(&n))),
-                        (_, _) => Err("IsSubstring can only be used if both the operands are strings".to_string())
-                    }
-                }
+                
             }
         }
         Expr::TernaryOp(fun, cond, true_exp, false_exp) =>
@@ -1094,6 +1085,16 @@ fn eval(expr: &Expr, sheets: &[Rc<RefCell<Sheet>>], caller_cell: &Option<Addr>) 
                             Ok(ValueType::FloatValue((n * factor).round() / factor))
                         },
                         _ => Err("Round function takes a float and an integer".to_string())
+                    }
+                }
+                BinaryFunction::IsSubstr =>
+                {
+                    let left = eval(exp1, sheets, caller_cell)?;
+                    let right = eval(exp2, sheets, caller_cell)?;
+                    match (left, right) 
+                    {
+                        (ValueType::String(n), ValueType::String(m)) => Ok(ValueType::BoolValue(m.contains(&n))),
+                        (_, _) => Err("IsSubstring can only be used if both the operands are strings".to_string())
                     }
                 }
             }

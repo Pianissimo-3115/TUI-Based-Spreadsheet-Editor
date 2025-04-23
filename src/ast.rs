@@ -56,6 +56,8 @@ pub enum OtherCommand {
     // RemoveRow(i32),
     // RemoveCol(i32),
 
+    MakeChart(Addr, Addr,Addr, Addr),
+
     CopyCellVals(Addr, Addr),
     CopyRangeVals(Addr, Addr, Addr),
     CopyCellFormulae(Addr, Addr),
@@ -195,7 +197,8 @@ pub enum RangeFunction {
 
 #[derive(Debug, Clone)]
 pub enum BinaryFunction {
-    Round
+    Round,
+    IsSubstr
 }
 
 #[derive(Debug, Clone)]
@@ -224,5 +227,5 @@ pub enum InfixFunction {
     // Not,
     
     Concat,
-    IsSubstring
+    
 }
