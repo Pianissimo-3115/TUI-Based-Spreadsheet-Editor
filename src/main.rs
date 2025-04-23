@@ -1155,8 +1155,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut historyWidget = HistoryWidget::new();
     let mut tabsWidget = TabsWidget{tabs: vec![], index: 0};
     let mut celldetailsWidget = CellDetailsWidget{};
-    let mut outputsWidget: OutputsWidget = OutputsWidget {};
-
+    let mut outputsWidget: OutputsWidget = OutputsWidget::new();
+    let mut show_graph: bool = false;
 
 
     let mut sheetstore = SheetStorage::new();
@@ -1190,7 +1190,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             draw_table(curr_col, curr_row, &sheetstore.data[curr_sheet_number].borrow(), "Spreadsheet", table_area, frame, &styleguide);
             historyWidget.draw(history_area, frame, &styleguide);
             inputWidget.draw(input_area, frame, &styleguide);
-            outputsWidget.draw_idle(output_area, frame, &styleguide);
+            if show_graph {
+                outputsWidget.draw_chart( &sheetstore.data[outputsWidget.sheetnum].borrow(), output_area, frame, &styleguide);
+            }
+            else {
+                outputsWidget.draw_idle(output_area, frame, &styleguide);
+            }
         });
         let mut inp: String = String::new();
 
@@ -1687,13 +1692,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     },
                     ast::OtherCommand::MakeChart(addr1,addr2,addr3,addr4 ) =>
                     {
-                        if addr1.sheet == addr2.sheet && addr3.sheet == addr4.sheet 
+                        if addr1.sheet == addr2.sheet &&  addr2.sheet == addr3.sheet && addr3.sheet == addr4.sheet 
                         {
-                            if addr1.col - addr2.col == 0 && addr3.col - addr4.col == 0
+                            if addr1.col == addr2.col && addr3.col == addr4.col
                             {
                                 if addr2.row - addr1.row == addr4.row - addr3.row 
                                 {
-                                    
+                                    outputsWidget.col1=addr1.col as usize;
+                                    outputsWidget.col2=addr3.col as usize;
+                                    outputsWidget.row_start1=addr1.row as usize;
+                                    outputsWidget.row_end1=addr2.row as usize;
+                                    outputsWidget.row_start2=addr3.row as usize;
+                                    outputsWidget.row_end2=addr4.row as usize;
+                                    outputsWidget.sheetnum = addr1.sheet as usize;
+                                    show_graph = true;
+                                    last_err_msg = String::from("ok");
                                 }
                                 else 
                                 {

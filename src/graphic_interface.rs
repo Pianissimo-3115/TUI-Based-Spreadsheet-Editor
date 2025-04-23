@@ -1,3 +1,4 @@
+use std::f64::INFINITY;
 use std::io;
 use std::cmp;
 
@@ -305,20 +306,49 @@ impl CellDetailsWidget {
 
 
 pub struct OutputsWidget {
-}
+    pub col1: usize,
+    pub row_start1:usize,
+    pub row_end1: usize,
+    pub col2: usize,
+    pub row_start2:usize,
+    pub row_end2: usize,
+    pub sheetnum: usize,
+    pub xlabel: String,
+    pub ylabel: String,
+
+    }
 
 
 impl OutputsWidget {
 
-    pub fn draw_chart(&mut self, col1: usize, row_start1:usize, row_end1: usize, col2: usize, row_start2:usize, row_end2: usize, xlabel: String, ylabel: String, sheet: &Sheet, area: Rect, frame: &mut Frame, styleguide: &StyleGuide, ) {
+    pub fn new() -> Self {
+        OutputsWidget {
+        col1: 0,
+        row_start1:0,
+        row_end1: 0,
+        col2: 0,
+        row_start2:0,
+        row_end2: 0,
+        sheetnum: 0,
+        xlabel: String::new(),
+        ylabel: String::new(),
+        }
+    }
+
+
+    pub fn draw_chart(&mut self, sheet: &Sheet, area: Rect, frame: &mut Frame, styleguide: &StyleGuide, ) {
         
         let mut data: Vec<(f64,f64)> = vec![];
-        for i in 0..=row_end1-row_start1 {
+        let mut min_val1: f64 = f64::MAX;
+        let mut min_val2: f64 = f64::MAX;
+        let mut max_val1: f64 = f64::MIN;
+        let mut max_val2: f64 = f64::MIN;
+        for i in 0..=self.row_end1-self.row_start1 {
             let val1: f64;
             let val2: f64;
 
-            let colref1 = sheet.data[col1].borrow();
-            let cell1 = colref1.cells[row_start1 + i].borrow();
+            let colref1 = sheet.data[self.col1].borrow();
+            let cell1 = colref1.cells[self.row_start1 + i].borrow();
             if cell1.valid {
                 let val =  &cell1.value;
                 match val {
@@ -330,8 +360,8 @@ impl OutputsWidget {
             }
             else { val1 = 0.0 };
 
-            let colref2 = sheet.data[col2].borrow();
-            let cell2 = colref2.cells[row_start2 + i].borrow();
+            let colref2 = sheet.data[self.col2].borrow();
+            let cell2 = colref2.cells[self.row_start2 + i].borrow();
             if cell2.valid {
                 let val =  &cell2.value;
                 match val {
@@ -342,13 +372,17 @@ impl OutputsWidget {
                 }
             }
             else { val2 = 0.0 };
+            min_val1 = if min_val1 < val1 {min_val1} else {val1};
+            min_val2 = if min_val2 < val2 {min_val2} else {val2};
+            max_val1 = if max_val1 > val1 {max_val1} else {val1};
+            max_val2 = if max_val2 > val2 {max_val2} else {val2};
             data.push((val1, val2));
         }
         
         
         let dataset = Dataset::default()
             .name("Values")
-            .marker(Marker::Dot)
+            .marker(Marker::Braille)
             .graph_type(GraphType::Scatter)
             .style(Style::new().cyan())
             .data(&data);
@@ -357,14 +391,17 @@ impl OutputsWidget {
         .block(Block::bordered().title(Line::from("Scatter chart").cyan().bold().centered()))
         .x_axis(
             Axis::default()
-                .title("Year")
+                .title("First_Range")
+                .bounds([min_val1, max_val1])
                 .style(Style::default().fg(Color::Gray))
+                .labels([min_val1.to_string(), max_val1.to_string()])
         )
         .y_axis(
             Axis::default()
-                .title("Cost")
+                .title("Second_Range")
+                .bounds([min_val2, max_val2])
                 .style(Style::default().fg(Color::Gray))
-
+                .labels([min_val1.to_string(), max_val1.to_string()])
         );
         frame.render_widget(chart, area);
     }

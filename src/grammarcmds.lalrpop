@@ -120,8 +120,8 @@ OtherCommand: (OtherCommand, Vec<ParentType>) = {
         let col_diff = e1.col - s1.col;
         let e2 = Addr{sheet: s2.sheet, col: s2.col + col_diff, row: s2.row + row_diff};
         (OtherCommand::CopyRangeFormulae(s1.clone(), e1.clone(), s2.clone()), vec![ParentType::Range(s1, e1), ParentType::Range(s2, e2)])
-    }
-    "MakeChart" Ws <s1: Addr> ":" <e1: Addr> Ws <s2: Addr> Ws <e2:Addr> =>
+    },
+    "MakeChart" Ws <s1: Addr> ":" <e1: Addr> Ws <s2: Addr> ":" <e2:Addr> =>
     {
         (OtherCommand::MakeChart(s1.clone(), e1.clone(), s2.clone(), e2.clone()), vec![ParentType::Range(s1, e1), ParentType::Range(s2, e2)])
     }
