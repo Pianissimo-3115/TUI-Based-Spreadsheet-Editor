@@ -499,6 +499,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 + common_diff*(row-start_addr.row) as i32;
                     cell.value = ValueType::IntegerValue(val);
                     cell.cell_func = Some(CellFunc::new(Expr::Integer(val)));
+                    cell.formula = val.to_string();
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
@@ -511,6 +512,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 as f64 + common_diff*(row-start_addr.row) as f64;
                     cell.value = ValueType::FloatValue(val);
                     cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell.formula = val.to_string();
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
@@ -523,6 +525,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 + common_diff*(row-start_addr.row) as f64;
                     cell.value = ValueType::FloatValue(val);
                     cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell.formula = val.to_string();
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -535,6 +538,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 + common_diff*(row-start_addr.row) as f64;
                     cell.value = ValueType::FloatValue(val);
                     cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell.formula = val.to_string();
                     
                 }
             }
@@ -566,6 +570,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 + common_diff*(col-start_addr.col) as i32;
                     cell3.value = ValueType::IntegerValue(val);
                     cell3.cell_func = Some(CellFunc::new(Expr::Integer(val)));
+                    cell3.formula = val.to_string();
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
@@ -580,6 +585,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 as f64 + common_diff*(col-start_addr.col) as f64;
                     cell3.value = ValueType::FloatValue(val);
                     cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell3.formula = val.to_string();
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
@@ -595,6 +601,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 + common_diff*(col-start_addr.col) as f64;
                     cell3.value = ValueType::FloatValue(val);
                     cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell3.formula = val.to_string();
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -610,6 +617,7 @@ fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 + common_diff*(col-start_addr.col) as f64;
                     cell3.value = ValueType::FloatValue(val);
                     cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell3.formula = val.to_string();
                 }
             }
             (_,_) =>
@@ -661,6 +669,8 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 as f64 * common_ratio.powf((row-start_addr.row) as f64);
                     cell.value = ValueType::IntegerValue(val as i32);
                     cell.cell_func = Some(CellFunc::new(Expr::Integer(val as i32)));
+
+                    cell.formula = val.to_string();
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
@@ -673,6 +683,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 as f64 * common_ratio.powf((row-start_addr.row) as f64);
                     cell.value = ValueType::FloatValue(val);
                     cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell.formula = val.to_string();
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
@@ -685,6 +696,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 * common_ratio.powf((row-start_addr.row) as f64);
                     cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
                     cell.value = ValueType::FloatValue(val);
+                    cell.formula = val.to_string();
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -697,6 +709,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 * common_ratio.powf((row-start_addr.row) as f64);
                     cell.value = ValueType::FloatValue(val);
                     cell.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell.formula = val.to_string();
                 }
             }
             (_,_) =>
@@ -727,6 +740,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 as f64 * (common_diff).powf((col-start_addr.col) as f64);
                     cell3.value = ValueType::IntegerValue(val as i32);
                     cell3.cell_func = Some(CellFunc::new(Expr::Integer(val as i32)));
+                    cell3.formula = val.to_string();
                 }
             }
             (ValueType::IntegerValue(val1), ValueType::FloatValue(val2)) =>
@@ -741,6 +755,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 as f64 * (common_diff).powf((col-start_addr.col) as f64);
                     cell3.value = ValueType::FloatValue(val);
                     cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell3.formula = val.to_string();
                 }
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
@@ -756,6 +771,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 * common_diff.powf((col-start_addr.col) as f64);
                     cell3.value = ValueType::FloatValue(val);
                     cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell3.formula = val.to_string();
                 }
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
@@ -771,6 +787,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
                     let val = val1 * common_diff.powf((col-start_addr.col) as f64);
                     cell3.value = ValueType::FloatValue(val);
                     cell3.cell_func = Some(CellFunc::new(Expr::Float(val)));
+                    cell3.formula = val.to_string();
                 }
             }
             (_,_) =>
