@@ -11,7 +11,7 @@ use graphic_interface::TabsWidget;
 use lalrpop_util::lalrpop_mod;
 use lalrpop_util::ParseError;
 use logos::Logos;
-use ratatui::style::Style;
+// use ratatui::style::Style;
 use crate::ast::{Expr, Addr, ParentType};
 use csv::ReaderBuilder;
 use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
@@ -23,10 +23,10 @@ use std::io::{self, Write, BufWriter};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp;
-use std::time::Instant;
+// use std::time::Instant;
 use std::fs::File;
 // use serde::Serialize;
-use csv::Reader;
+// use csv::Reader;
 
 
 // --For Graphics--
@@ -40,8 +40,8 @@ use ratatui::{
     backend::CrosstermBackend,
     Terminal,
     layout::{
-        Constraint::{self, Fill, Length, Max, Min, Percentage, Ratio},
-        Layout, Rect,
+        Constraint::{Min, Percentage},
+        Layout,
     },
     // widgets::{Table, Row, Cell, Block, Borders},
     // layout::{Constraint, Direction, Layout, Rect},
@@ -90,11 +90,11 @@ impl SheetStorage {
         }
     }
 
-    pub fn listNames(&self) -> Vec<String> {
+    pub fn list_names(&self) -> Vec<String> {
         self.map.iter().map(|x| x.0.clone()).collect::<Vec<String>>()
     }
 
-    pub fn listIndexFromNum(&self, num: usize) -> Option<usize> {
+    pub fn list_index_from_num(&self, num: usize) -> Option<usize> {
         for i in 0..self.map.len() {
             if self.map[i].1 == num {
                 return Some(i)
@@ -176,15 +176,15 @@ impl SheetStorage {
 
 
 struct Settings{
-    cell_width: u32,
-    formula_width: u32,
+    // cell_width: u32,
+    // formula_width: u32,
     undo_history_limit: u32
 }
 impl Settings {
     fn new() -> Self {
         Settings{
-            cell_width: 9,
-            formula_width: 15,
+            // cell_width: 9,
+            // formula_width: 15,
             undo_history_limit: 10
         }
     }
@@ -269,7 +269,7 @@ fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String>
             csv_data.push(vec![]);
             if col.borrow().cells.is_empty()
             {
-                for _i in 0..sheet.rows
+                for _ in 0..sheet.rows
                 {
                     if let Some(last) = csv_data.last_mut()
                     {
@@ -281,14 +281,11 @@ fn export_csv(sheet: &Sheet, name: &str) -> Result<(), String>
             {
                 let curr_rows: usize = col.borrow().cells.len();
                 let row: &Vec<Rc<RefCell<Cell>>> = &col.borrow().cells;
-                for i in 0..curr_rows
-                {
-                    let value = Rc::clone(&row[i]).borrow().value.clone();
-                    if let Some(last) = csv_data.last_mut()
-                    {
-                        (*last).push(value.to_string());
-                    }
-
+                if let Some(last) = csv_data.last_mut() {
+                    row.iter()
+                        .take(curr_rows)
+                        .map(|cell_rc| cell_rc.borrow().value.clone().to_string())
+                        .for_each(|value| last.push(value));
                 }
                 for _i in curr_rows..sheet.rows as usize
                 {
@@ -390,22 +387,20 @@ fn copy_cell_value(addr1:Addr, addr2:Addr, sheets: &[Rc<RefCell<Sheet>>])
 
 fn copy_range_value(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &[Rc<RefCell<Sheet>>])
 {
-    let mut n = 0;
     let mut m = 0;
-    for i in addr1.row..=addr2.row
+    for (n,i) in (addr1.row..=addr2.row).enumerate()
     {
         for j in addr1.col..=addr2.col
         {
-            copy_cell_value(Addr{sheet: addr1.sheet, row: i, col: j}, Addr{sheet: addr3.sheet, row: addr3.row + n, col: addr3.col + m}, sheets);
+            copy_cell_value(Addr{sheet: addr1.sheet, row: i, col: j}, Addr{sheet: addr3.sheet, row: addr3.row + n as u32, col: addr3.col + m}, sheets);
             m += 1;
         }
-        n += 1;
 
         m = 0;
     }
 }
 
-fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
+fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>]) -> Result<(),String>
 {
     let sheet_ref = Rc::clone(&sheets[addr1.sheet as usize]);
     let sheet = sheet_ref.borrow();
@@ -415,7 +410,7 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
     // drop(column);
     let cell = cell_rc.borrow();
     let func = cell.cell_func.clone();
-    
+    drop(cell);
     let sheet_ref2 = Rc::clone(&sheets[addr2.sheet as usize]);
     let sheet2 = sheet_ref2.borrow();
     let column_ref2 = &sheet2.data[addr2.col as usize];
@@ -423,29 +418,26 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
     let cell_rc2 = Rc::clone(&column2[addr2.row as usize]);
     // drop(column);
     let mut cell2 = cell_rc2.borrow_mut();
-    
+    let old_func = cell2.cell_func.clone();
     cell2.cell_func = func.clone();
-    drop(cell2);
-
-    evaluate(sheets, &addr2, &func);
-
+    
+    evaluate(sheets, &addr2, &old_func)
 
 }
 
-fn copy_range_function(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &mut [Rc<RefCell<Sheet>>])
+fn copy_range_function(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &mut [Rc<RefCell<Sheet>>]) -> Result<(),String>
 {
-    let mut n = 0;
     let mut m = 0;
-    for i in addr1.row..=addr2.row
+    for (n,i) in (addr1.row..=addr2.row).enumerate()
     {
         for j in addr1.col..=addr2.col
         {
-            copy_cell_function(Addr{sheet: addr1.sheet, row: i, col: j}, Addr{sheet: addr3.sheet, row: addr3.row + n, col: addr3.col + m}, sheets);
+            copy_cell_function(Addr{sheet: addr1.sheet, row: i, col: j}, Addr{sheet: addr3.sheet, row: addr3.row + n as u32, col: addr3.col + m}, sheets)?;
             m += 1;
         }
-        n += 1;
         m=0;
     }
+    Ok(())
     
 }
 
@@ -761,66 +753,37 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
     Ok(())
 }
 
-fn invalidate_children(sheets: &mut [Rc<RefCell<Sheet>>], cell_addr: Addr)       // isko correct karo
-{
-    let temp: &Rc<RefCell<Sheet>>;
-    let temp1 = &sheets.get(cell_addr.sheet as usize);
-    if temp1.is_none()
-    {
+fn invalidate_children(sheets: &mut [Rc<RefCell<Sheet>>], cell_addr: Addr) {
+    let Some(sheet_ref) = sheets.get(cell_addr.sheet as usize) else {
         return;
-    }
-    else 
-    {
-        temp = temp1.unwrap();
-    }
-    let sheet_ref = Rc::clone(temp);
+    };
     let sheet = sheet_ref.borrow();
-    let column_ref = &sheet.data[cell_addr.col as usize];
-    // let column_ref  = &sheet.data.get(cell.addr.col as usize);
+    let Some(column_ref) = sheet.data.get(cell_addr.col as usize) else {
+        return;
+    };
     let column = column_ref.borrow();
-    let temp1 = &column.cells.get(cell_addr.row as usize);
-    let temp: &Rc<RefCell<Cell>>;
-    if temp1.is_none()
-    {
-        return ;
-    }
-    else 
-    {
-        temp = temp1.unwrap();
-    }
-    let cell_ref = Rc::clone(temp);
-    let cell = cell_ref.borrow_mut();
-    for child_addr in cell.children.iter()
-    {
-        let temp1: &Option<&Rc<RefCell<Sheet>>> = &sheets.get(child_addr.sheet as usize);
-        let temp: &Rc<RefCell<Sheet>>;
-        if temp1.is_none()
-        {
-            return ;
-        }
-        else 
-        {
-            temp = temp1.unwrap();
-        }
-        let new_sheet_ref = Rc::clone(temp);
+    let Some(cell_ref) = column.cells.get(cell_addr.row as usize) else {
+        return;
+    };
+    let cell = cell_ref.borrow();
+
+    for child_addr in cell.children.iter() {
+        let Some(new_sheet_ref) = sheets.get(child_addr.sheet as usize) else {
+            continue;
+        };
         let new_sheet = new_sheet_ref.borrow();
-        let new_column_ref = &new_sheet.data[child_addr.col as usize];
+        let Some(new_column_ref) = new_sheet.data.get(child_addr.col as usize) else {
+            continue;
+        };
         let new_column = new_column_ref.borrow();
-        let temp1 = &new_column.cells.get(child_addr.row as usize);
-        let temp;
-        if temp1.is_none()
-        {
-            return ;
-        }
-        else 
-        {
-            temp = temp1.unwrap();
-        }
-        let new_cell_ref = Rc::clone(temp);
+        let Some(new_cell_ref) = new_column.cells.get(child_addr.row as usize) else {
+            continue;
+        };
         let mut new_cell = new_cell_ref.borrow_mut();
         new_cell.valid = false;
-    }  
+    }
 }
+
 
 fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(Addr, Option<CellFunc> /* old func */, Option<CellFunc> /* new func */)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, Option<CellFunc>)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
 {
@@ -1063,74 +1026,74 @@ fn update_cell_func(exp: Expr, sheet_num: u32, sheet_idx: u32) -> Expr
     }
 }
 
-fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings, showformulas: bool)
-{
-    let row_max = cmp::min(row+10, sheet.rows);
-    let col_max = cmp::min(col+10, sheet.columns);
-    let width = settings.cell_width as usize;
-    let formula_width = settings.formula_width as usize;
+// fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings, showformulas: bool)
+// {
+//     let row_max = cmp::min(row+10, sheet.rows);
+//     let col_max = cmp::min(col+10, sheet.columns);
+//     let width = settings.cell_width as usize;
+//     let formula_width = settings.formula_width as usize;
     
-    print!("      ");
-    for i in col..col_max {
-        let mut curr = String::new();
-        let mut curr_col = i + 1;
-        while curr_col > 0
-        {
+//     print!("      ");
+//     for i in col..col_max {
+//         let mut curr = String::new();
+//         let mut curr_col = i + 1;
+//         while curr_col > 0
+//         {
 
-            curr.push(((b'A') + ((curr_col-1) % 26) as u8) as char);
+//             curr.push(((b'A') + ((curr_col-1) % 26) as u8) as char);
             
-            curr_col -= 1;
-            curr_col /= 26;
-        }
-        print!("{:>width$}", curr.chars().rev().collect::<String>());
-    }
-    println!();
-    for i in row..row_max {
-        print!("{:>width$}", i+1);
-        for j in col..col_max {
+//             curr_col -= 1;
+//             curr_col /= 26;
+//         }
+//         print!("{:>width$}", curr.chars().rev().collect::<String>());
+//     }
+//     println!();
+//     for i in row..row_max {
+//         print!("{:>width$}", i+1);
+//         for j in col..col_max {
 
-            if showformulas
-            {
-                let colref = sheet.data[j as usize].borrow();
-                if i as usize >= colref.cells.len() {
-                    print!("{:>width$}", "~");
-                    continue;
-                }
-                else
-                {
-                    let cell = colref.cells[i as usize].borrow();
-                    print!("{:>formula_width$}", cell.formula);
-                } 
-            }
-            else
-            {
-                let colref = sheet.data[j as usize].borrow();
-                if i as usize >= colref.cells.len()
-                {
-                    print!("{:>width$}", "~");
-                    continue
-                } 
-                else
-                {
-                    let cell = colref.cells[i as usize].borrow();
-                    if cell.valid {
-                        let val =  &cell.value;
-                        match val {
-                            ValueType::BoolValue(b) => print!("{:>width$}", b),
-                            ValueType::IntegerValue(x) => print!("{:>width$}", x),
-                            ValueType::FloatValue(n) => print!("{:>width$.2}", n, width = width),
-                            ValueType::String(s) => print!("{:>width$}", s),
-                        }
-                    }
-                    else {
-                        print!("{:>width$}", "~ERR")
-                    }
-                }  
-            }
-        }
-        println!()
-    }
-}
+//             if showformulas
+//             {
+//                 let colref = sheet.data[j as usize].borrow();
+//                 if i as usize >= colref.cells.len() {
+//                     print!("{:>width$}", "~");
+//                     continue;
+//                 }
+//                 else
+//                 {
+//                     let cell = colref.cells[i as usize].borrow();
+//                     print!("{:>formula_width$}", cell.formula);
+//                 } 
+//             }
+//             else
+//             {
+//                 let colref = sheet.data[j as usize].borrow();
+//                 if i as usize >= colref.cells.len()
+//                 {
+//                     print!("{:>width$}", "~");
+//                     continue
+//                 } 
+//                 else
+//                 {
+//                     let cell = colref.cells[i as usize].borrow();
+//                     if cell.valid {
+//                         let val =  &cell.value;
+//                         match val {
+//                             ValueType::BoolValue(b) => print!("{:>width$}", b),
+//                             ValueType::IntegerValue(x) => print!("{:>width$}", x),
+//                             ValueType::FloatValue(n) => print!("{:>width$.2}", n, width = width),
+//                             ValueType::String(s) => print!("{:>width$}", s),
+//                         }
+//                     }
+//                     else {
+//                         print!("{:>width$}", "~ERR")
+//                     }
+//                 }  
+//             }
+//         }
+//         println!()
+//     }
+// }
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
@@ -1151,11 +1114,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut terminal = Terminal::new(backend)?; //NOTE: Source of panic.
 
     let styleguide = StyleGuide::new();
-    let mut inputWidget = TextInputWidget::new();
-    let mut historyWidget = HistoryWidget::new();
-    let mut tabsWidget = TabsWidget{tabs: vec![], index: 0};
-    let mut celldetailsWidget = CellDetailsWidget{};
-    let mut outputsWidget: OutputsWidget = OutputsWidget::new();
+    let mut input_widget = TextInputWidget::new();
+    let mut history_widget = HistoryWidget::new();
+    let mut tabs_widget = TabsWidget{tabs: vec![], index: 0};
+    let mut celldetails_widget = CellDetailsWidget{};
+    let mut outputs_widget: OutputsWidget = OutputsWidget::new();
     let mut show_graph: bool = false;
 
 
@@ -1169,41 +1132,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut curr_col: usize= 0;
     let mut curr_row: usize = 0;
     let mut curr_sheet_number: usize = 0;
-    let mut show_window: bool = true;
+    // let mut show_window: bool = true;
     let mut last_err_msg = String::from("ok");
     let settings = Settings::new();
-    let mut last_time = 0;
+    // let mut last_time = 0;
     let mut command_history_index = 0;
     let mut undo_history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
     let mut redo_history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
 
     'mainloop: while !exit {
-        let mut start = Instant::now();
+        // let mut start = Instant::now();
         let _ = terminal.draw(|frame| {
             let [tabs_area, table_details_area, history_output_area, input_area] = Layout::vertical([Min(3), Percentage(60), Percentage(40), Min(3)]).areas(frame.area());
             let [table_area, detail_area] = Layout::horizontal([Percentage(75), Percentage(25)]).areas(table_details_area);
             let [history_area, output_area] = Layout::horizontal([Percentage(70), Percentage(30)]).areas(history_output_area);
-            tabsWidget.tabs = sheetstore.listNames();
-            tabsWidget.index = sheetstore.listIndexFromNum(curr_sheet_number).unwrap();  //NOTE: Source of panic.
-            tabsWidget.draw(tabs_area, frame, &styleguide);
-            celldetailsWidget.draw(curr_col, curr_row, &sheetstore.data[curr_sheet_number].borrow(),detail_area, frame, &styleguide);
+            tabs_widget.tabs = sheetstore.list_names();
+            tabs_widget.index = sheetstore.list_index_from_num(curr_sheet_number).unwrap();  //NOTE: Source of panic.
+            tabs_widget.draw(tabs_area, frame, &styleguide);
+            celldetails_widget.draw(curr_col, curr_row, &sheetstore.data[curr_sheet_number].borrow(),detail_area, frame, &styleguide);
             draw_table(curr_col, curr_row, &sheetstore.data[curr_sheet_number].borrow(), "Spreadsheet", table_area, frame, &styleguide);
-            historyWidget.draw(history_area, frame, &styleguide);
-            inputWidget.draw(input_area, frame, &styleguide);
+            history_widget.draw(history_area, frame, &styleguide);
+            input_widget.draw(input_area, frame, &styleguide);
             if show_graph {
-                outputsWidget.draw_chart( &sheetstore.data[outputsWidget.sheetnum].borrow(), output_area, frame, &styleguide);
+                outputs_widget.draw_chart( &sheetstore.data[outputs_widget.sheetnum].borrow(), output_area, frame, &styleguide);
             }
             else {
-                outputsWidget.draw_idle(output_area, frame, &styleguide);
+                outputs_widget.draw_idle(output_area, frame, &styleguide);
             }
         });
         let mut inp: String = String::new();
 
         if let Event::Key(key) = event::read()? {
-            match inputWidget.input_mode {
+            match input_widget.input_mode {
                 InputMode::Normal => match key.code {
                     KeyCode::Char('e') => {
-                        inputWidget.input_mode = InputMode::Editing;
+                        input_widget.input_mode = InputMode::Editing;
                         continue 'mainloop
                     }
                     KeyCode::Char('q') => {
@@ -1226,18 +1189,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         curr_col = cmp::max(0, cmp::min(curr_col as i64 -1 , curr_sheet.columns as i64 - 10)) as usize;
                     }
                     KeyCode::Up if key.kind == KeyEventKind::Press=> {
-                        historyWidget.scroll_amt = historyWidget.scroll_amt.saturating_sub(1)
+                        history_widget.scroll_amt = history_widget.scroll_amt.saturating_sub(1)
                     }
                     KeyCode::Down if key.kind == KeyEventKind::Press => {
-                        historyWidget.scroll_amt = cmp::min(historyWidget.scroll_amt.saturating_add(1), historyWidget.history.len().saturating_sub(15));
+                        history_widget.scroll_amt = cmp::min(history_widget.scroll_amt.saturating_add(1), history_widget.history.len().saturating_sub(15));
                     }
                     KeyCode::Right if key.kind == KeyEventKind::Press => {
-                        curr_sheet_number = sheetstore.map[(sheetstore.listIndexFromNum(curr_sheet_number).expect("curr_sheet_number somehow no longer valid").saturating_add(1))%sheetstore.map.len()].1;
+                        curr_sheet_number = sheetstore.map[(sheetstore.list_index_from_num(curr_sheet_number).expect("curr_sheet_number somehow no longer valid").saturating_add(1))%sheetstore.map.len()].1;
                         curr_col = 0;
                         curr_row = 0;
                     }
                     KeyCode::Left if key.kind == KeyEventKind::Press => {
-                        curr_sheet_number = sheetstore.map[(sheetstore.listIndexFromNum(curr_sheet_number).expect("curr_sheet_number somehow no longer valid").saturating_sub(1))%sheetstore.map.len()].1;
+                        curr_sheet_number = sheetstore.map[(sheetstore.list_index_from_num(curr_sheet_number).expect("curr_sheet_number somehow no longer valid").saturating_sub(1))%sheetstore.map.len()].1;
                         curr_col = 0;
                         curr_row = 0;
                     }
@@ -1245,37 +1208,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 },
                 InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
                     KeyCode::Enter => { 
-                        inp = inputWidget.input.clone();
-                        inputWidget.reset_cursor();
-                        inputWidget.input.clear();
+                        inp = input_widget.input.clone();
+                        input_widget.reset_cursor();
+                        input_widget.input.clear();
                         command_history_index = 0;
                         },
-                    KeyCode::Char(to_insert) => { inputWidget.enter_char(to_insert); continue 'mainloop} ,
-                    KeyCode::Backspace => { inputWidget.delete_char(); continue 'mainloop }
-                    KeyCode::Left => { inputWidget.move_cursor_left(); continue 'mainloop }
+                    KeyCode::Char(to_insert) => { input_widget.enter_char(to_insert); continue 'mainloop} ,
+                    KeyCode::Backspace => { input_widget.delete_char(); continue 'mainloop }
+                    KeyCode::Left => { input_widget.move_cursor_left(); continue 'mainloop }
                     KeyCode::Up => { 
-                        command_history_index = cmp::min(command_history_index+1, historyWidget.history.len().saturating_sub(1)); //Subtracting 1 because history widget is initialised with good luck
+                        command_history_index = cmp::min(command_history_index+1, history_widget.history.len().saturating_sub(1)); //Subtracting 1 because history widget is initialised with good luck
                         if command_history_index != 0 {
-                            inputWidget.input = historyWidget.history[historyWidget.history.len() - command_history_index].0.clone();
-                            inputWidget.reset_cursor();
+                            input_widget.input = history_widget.history[history_widget.history.len() - command_history_index].0.clone();
+                            input_widget.reset_cursor();
                         }
                         continue 'mainloop }
                     KeyCode::Down => { 
                         if command_history_index == 1 {
                             command_history_index = 0;
-                            inputWidget.input = String::new();
-                            inputWidget.reset_cursor();
+                            input_widget.input = String::new();
+                            input_widget.reset_cursor();
                         }
                         else {
                             command_history_index = command_history_index.saturating_sub(1);
                             if command_history_index != 0 {
-                                inputWidget.input = historyWidget.history[historyWidget.history.len() - command_history_index].0.clone();
-                                inputWidget.reset_cursor();
+                                input_widget.input = history_widget.history[history_widget.history.len() - command_history_index].0.clone();
+                                input_widget.reset_cursor();
                             }
                         }
                         continue 'mainloop }
-                    KeyCode::Right => { inputWidget.move_cursor_right(); continue 'mainloop }
-                    KeyCode::Esc => { inputWidget.input_mode = InputMode::Normal; continue 'mainloop }
+                    KeyCode::Right => { input_widget.move_cursor_right(); continue 'mainloop }
+                    KeyCode::Esc => { input_widget.input_mode = InputMode::Normal; continue 'mainloop }
                     _ => { continue 'mainloop }
                 },
                 InputMode::Editing => { continue 'mainloop }
@@ -1312,25 +1275,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 Err(ParseError::User{error: tokenscmds::LexicalError::InvalidToken}) => 
                 {
                     last_err_msg = String::from("Invalid Token"); 
-                    last_time = 0;
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    // last_time = 0;
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop
                 },
                 Err(ParseError::User{error: tokenscmds::LexicalError::InvalidInteger(x)}) => 
                 {   
                     last_err_msg = format!("Invalid Integer {:?}", x); 
-                    last_time = 0;
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    // last_time = 0;
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop
                 }, 
                 Err(e) => 
                 {
                     last_err_msg = format!("This error: {:?}", e); 
-                    last_time = 0;
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    // last_time = 0;
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop
                 }
             };
@@ -1348,25 +1311,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 Err(ParseError::User{error: tokensexpr::LexicalError::InvalidToken}) => 
                 {
                     last_err_msg = String::from("Invalid Token"); 
-                    last_time = 0;
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    // last_time = 0;
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop
                 },
                 Err(ParseError::User{error: tokensexpr::LexicalError::InvalidInteger(x)}) => 
                 {   
                     last_err_msg = format!("Invalid Integer {:?}", x); 
-                    last_time = 0;
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    // last_time = 0;
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop
                 }, 
                 Err(e) => 
                 {
                     last_err_msg = format!("This error: {:?}", e); 
-                    last_time = 0;
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    // last_time = 0;
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop
                 }
             };
@@ -1378,7 +1341,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
         let address: Addr;
         let new_function: Option<CellFunc>;
-        start = Instant::now();
+        // start = Instant::now();
         match ast {
             ast::Command::OtherCmd(cmd) => { 
                 for dep in &dep_vec {
@@ -1386,17 +1349,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         ast::ParentType::Single(a_1) => {
                             let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
                             if a_1.row >= cell_sheet.rows {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_1.col >= cell_sheet.columns {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
@@ -1414,54 +1377,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                     &sheetstore.data[a_1.sheet as usize].borrow()
                                 }
                                 else {
-                                    last_time = 0;
+                                    // last_time = 0;
                                     last_err_msg = String::from("Range addresses must belong to the same sheet.");
-                                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                     continue 'mainloop
                                 }
                             };
 
                             if a_1.row >= cell_sheet.rows {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_1.col >= cell_sheet.columns {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_2.row >= cell_sheet.rows {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_2.col >= cell_sheet.columns {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_1.col > a_2.col {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_1.row > a_2.row {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             for i in a_1.col..=a_2.col {
@@ -1552,11 +1515,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         {
                             Ok((cell_addr,old_function)) =>
                             {
-                                start = Instant::now();
+                                // start = Instant::now();
                                 // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
                                 if let Err(strr) = evaluate(&mut sheetstore.data, &cell_addr, &old_function)
                                 {
-                                    last_time = start.elapsed().as_secs();
+                                    // last_time = start.elapsed().as_secs();
                                     last_err_msg = strr;
                                     continue 'mainloop;
                                 } 
@@ -1573,11 +1536,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         {
                             Ok((cell_addr,old_function)) =>
                             {
-                                start = Instant::now();
+                                // start = Instant::now();
                                 // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
                                 if let Err(strr) = evaluate(&mut sheetstore.data, &cell_addr, &old_function)
                                 {
-                                    last_time = start.elapsed().as_secs();
+                                    // last_time = start.elapsed().as_secs();
                                     last_err_msg = strr;
                                     continue 'mainloop;
                                 } 
@@ -1661,13 +1624,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     },
                     ast::OtherCommand::CopyCellFormulae(addr1, addr2) =>
                     {
-                        copy_cell_function(addr1, addr2,&mut sheetstore.data);
-                        last_err_msg = String::from("ok");
+                        match copy_cell_function(addr1, addr2,&mut sheetstore.data)
+                        {
+                            Ok(_) => 
+                            {
+                                last_err_msg = String::from("ok");
+                            }
+                            Err(e) => 
+                            {
+                                last_err_msg = format!("Error occured during copy: {}", e);
+                            }
+                        }
                     },
                     ast::OtherCommand::CopyRangeFormulae(addr1,addr2, addr3 ) =>
                     {
-                        copy_range_function(addr1, addr2, addr3, &mut sheetstore.data);
-                        last_err_msg = String::from("ok");
+                        match copy_range_function(addr1, addr2, addr3, &mut sheetstore.data)
+                        {
+                            Ok(_) => last_err_msg = String::from("ok"),
+                            Err(e) => last_err_msg = format!("Error occured during copy: {}", e)
+                        }
                     },
                     ast::OtherCommand::CopyRangeVals(addr1,addr2, addr3) =>
                     {
@@ -1698,13 +1673,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             {
                                 if addr2.row - addr1.row == addr4.row - addr3.row 
                                 {
-                                    outputsWidget.col1=addr1.col as usize;
-                                    outputsWidget.col2=addr3.col as usize;
-                                    outputsWidget.row_start1=addr1.row as usize;
-                                    outputsWidget.row_end1=addr2.row as usize;
-                                    outputsWidget.row_start2=addr3.row as usize;
-                                    outputsWidget.row_end2=addr4.row as usize;
-                                    outputsWidget.sheetnum = addr1.sheet as usize;
+                                    outputs_widget.col1=addr1.col as usize;
+                                    outputs_widget.col2=addr3.col as usize;
+                                    outputs_widget.row_start1=addr1.row as usize;
+                                    outputs_widget.row_end1=addr2.row as usize;
+                                    outputs_widget.row_start2=addr3.row as usize;
+                                    outputs_widget.row_end2=addr4.row as usize;
+                                    outputs_widget.sheetnum = addr1.sheet as usize;
                                     show_graph = true;
                                     last_err_msg = String::from("ok");
                                 }
@@ -1725,22 +1700,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     }
                 
                 };
-                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                 continue 'mainloop
             }
             ast::Command::DisplayCmd(d_cmd) => {
                 let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
                 match d_cmd {
-                    ast::DisplayCommand::EnableOut => show_window = true,
-                    ast::DisplayCommand::DisableOut => show_window = false,
+                    ast::DisplayCommand::EnableOut => {},
+                    ast::DisplayCommand::DisableOut => {},
                     ast::DisplayCommand::ScrollTo(addr) => 
                     {
                         if (addr.row >= curr_sheet.rows) | (addr.col >= curr_sheet.columns) {
-                            last_time = 0;
+                            // last_time = 0;
                             last_err_msg = String::from("Address out of bounds");
-                            historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                            historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                            history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                            history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                             continue 'mainloop
                         }
                         curr_sheet_number = addr.sheet as usize;
@@ -1755,8 +1730,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     ast::DisplayCommand::MoveLeft => curr_col = cmp::max(0, cmp::min(curr_col as i64 -1 , curr_sheet.columns as i64 - 10)) as usize,
                 };
                 last_err_msg = String::from("ok");
-                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                 continue 'mainloop
             },
             ast::Command::Quit => exit = true,
@@ -1766,17 +1741,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 {
                 let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
                 if a.row >= cell_sheet.rows {
-                    last_time = 0;
+                    // last_time = 0;
                     last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop;
                 }
                 if a.col >= cell_sheet.columns {
-                    last_time = 0;
+                    // last_time = 0;
                     last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop;
                 }
                 let mut col = cell_sheet.data[a.col as usize].borrow_mut();
@@ -1792,17 +1767,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         ast::ParentType::Single(a_1) => {
                             let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
                             if a_1.row >= cell_sheet.rows {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_1.col >= cell_sheet.columns {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
@@ -1820,54 +1795,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                     &sheetstore.data[a_1.sheet as usize].borrow()
                                 }
                                 else {
-                                    last_time = 0;
+                                    // last_time = 0;
                                     last_err_msg = String::from("Range addresses must belong to the same sheet.");
-                                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                     continue 'mainloop
                                 }
                             };
 
                             if a_1.row >= cell_sheet.rows {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_1.col >= cell_sheet.columns {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_2.row >= cell_sheet.rows {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_2.col >= cell_sheet.columns {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_1.col > a_2.col {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             if a_1.row > a_2.row {
-                                last_time = 0;
+                                // last_time = 0;
                                 last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
-                                historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                                historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                                 continue 'mainloop;
                             }
                             for i in a_1.col..=a_2.col {
@@ -1897,14 +1872,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     drop(target_cell_ref);
 
                 }
-                start = Instant::now();
+                // start = Instant::now();
                     // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
                 if let Err(strr) = evaluate(&mut sheetstore.data, &a, &old_func)
                 {
-                    last_time = start.elapsed().as_secs();
+                    // last_time = start.elapsed().as_secs();
                     last_err_msg = strr;
-                    historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-                    historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);
+                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
                     continue 'mainloop;   
                 }
                 else 
@@ -1919,10 +1894,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 }              
             }
         }
-        last_time = start.elapsed().as_secs();
+        // last_time = start.elapsed().as_secs();
         last_err_msg = String::from("ok");
-        historyWidget.history.push((inp.clone(), last_err_msg.clone()));
-        historyWidget.scroll_amt = historyWidget.history.len().saturating_sub(15);}
+        history_widget.history.push((inp.clone(), last_err_msg.clone()));
+        history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);}
 
     disable_raw_mode()?;
     execute!(io::stdout(), LeaveAlternateScreen)?;

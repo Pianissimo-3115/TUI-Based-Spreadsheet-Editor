@@ -1,24 +1,24 @@
-use std::f64::INFINITY;
-use std::io;
+// use std::f64::INFINITY;
+// use std::io;
 use std::cmp;
 
 use crate::cell_operations::{Sheet, ValueType};
 
-use crossterm::{
-    execute,
-    terminal::{enable_raw_mode, disable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
+// use crossterm::{
+//     execute,
+//     terminal::{enable_raw_mode, disable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+// };
 
-use ratatui::text::Text;
+// use ratatui::text::Text;
 use ratatui::widgets::Dataset;
 use ratatui::{
-    backend::CrosstermBackend,
-    Terminal, Frame,
-    text::{Line, Masked, Span},
+    // backend::CrosstermBackend,
+    Frame,
+    text::{Line, Span},
     widgets::{Table, Row, Cell, Block, Borders, Paragraph, ScrollbarState, Scrollbar, ScrollbarOrientation, Tabs, Axis, Chart, GraphType, Wrap},
-    layout::{Constraint, Direction, Layout, Rect, Position, Margin},
+    layout::{Constraint, Rect, Position},
     style::{Style, Color, palette::tailwind, Stylize},
-    symbols::{self, Marker}
+    symbols::Marker
 };
 
 pub struct StyleGuide {
@@ -41,6 +41,11 @@ pub struct StyleGuide {
 
 
 //For color options, either use the Color::Name foramt or you can also use from tailwind [eg: Style::default().fg(tailwind::SLATE.c900) ]
+impl Default for StyleGuide {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl StyleGuide {
     pub fn new() -> Self {
         Self {
@@ -79,7 +84,11 @@ pub enum InputMode {
     Normal,
     Editing,
 }
-
+impl Default for TextInputWidget {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl TextInputWidget {
     pub const fn new() -> Self {
         Self {
@@ -147,7 +156,7 @@ impl TextInputWidget {
         self.character_index = 0;
     }
 
-    pub fn draw(&self, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) -> () {
+    pub fn draw(&self, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) {
 
         let input = Paragraph::new(self.input.as_str())
             .style(match self.input_mode {
@@ -181,7 +190,11 @@ pub struct HistoryWidget {
     pub scroll_amt: usize
 }
 
-
+impl Default for HistoryWidget {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl HistoryWidget {
     pub fn new() -> Self {
         HistoryWidget{ history: vec![(String::from("Starting"),String::from(" All The best"))] ,scrollstate: ScrollbarState::new(0), scroll_amt: 0} //NOTE: PUT CONTENT LENGTH IN SETTINGS!!!!!!
@@ -246,36 +259,34 @@ impl CellDetailsWidget {
         let header = Row::new(vec![String::from("Property"), String::from("Value")])
             .style(styleguide.cell_details_header);
 
-        let mut data: Vec<Vec<String>>;
         let curr_cell_col = sheet.data[col].borrow();
-        if row >= curr_cell_col.cells.len() {
-            data = vec![
-                vec![String::from("Column"), col.to_string()],
-                vec![String::from("Row"), row.to_string()],
-                vec![String::from("Value"), String::from("~")],
-                vec![String::from("Expression"), String::from("~")]
-            ];
-        }
-        else {
+        let data = if row >= curr_cell_col.cells.len() {
+            vec![
+                vec!["Column".to_string(), col.to_string()],
+                vec!["Row".to_string(), row.to_string()],
+                vec!["Value".to_string(), "~".to_string()],
+                vec!["Expression".to_string(), "~".to_string()],
+            ]
+        } else {
             let curr_cell = curr_cell_col.cells[row].borrow();
-
-            data = vec![
-                vec![String::from("Column"), curr_cell.addr.col.to_string()],
-                vec![String::from("Row"), curr_cell.addr.row.to_string()],
-                vec![String::from("Value"), 
+    
+            vec![
+                vec!["Column".to_string(), curr_cell.addr.col.to_string()],
+                vec!["Row".to_string(), curr_cell.addr.row.to_string()],
+                vec!["Value".to_string(),
                     match &curr_cell.value {
                         ValueType::BoolValue(b) => b.to_string(),
                         ValueType::IntegerValue(x) => x.to_string(),
                         ValueType::FloatValue(n) => n.to_string(),
-                        ValueType::String(s) => s.to_string(),
+                        ValueType::String(s) => s.clone(),
                     }],
-                vec![String::from("Expression"),
+                vec!["Expression".to_string(),
                     match &curr_cell.cell_func {
                         Some(_) => curr_cell.formula.clone(),
-                        None => String::from("~"),
+                        None => "~".to_string(),
                     }],
-            ];
-        }
+            ]
+        };
 
         // Convert data into styled rows with alternating backgrounds
         let rows: Vec<Row> = data
@@ -317,7 +328,11 @@ pub struct OutputsWidget {
     pub ylabel: String,
 
     }
-
+impl Default for OutputsWidget {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl OutputsWidget {
 
@@ -336,7 +351,8 @@ impl OutputsWidget {
     }
 
 
-    pub fn draw_chart(&mut self, sheet: &Sheet, area: Rect, frame: &mut Frame, styleguide: &StyleGuide, ) {
+
+    pub fn draw_chart(&mut self, sheet: &Sheet, area: Rect, frame: &mut Frame, _styleguide: &StyleGuide, ) {
         
         let mut data: Vec<(f64,f64)> = vec![];
         let mut min_val1: f64 = f64::MAX;
@@ -352,10 +368,10 @@ impl OutputsWidget {
             if cell1.valid {
                 let val =  &cell1.value;
                 match val {
-                    ValueType::BoolValue(b) => val1 = 0.0,
-                    ValueType::IntegerValue(x) => val1 = x.clone() as f64,
+                    ValueType::BoolValue(_) => val1 = 0.0,
+                    ValueType::IntegerValue(x) => val1 = *x as f64,
                     ValueType::FloatValue(n) => val1 = *n,
-                    ValueType::String(s) => val1 = 0.0,
+                    ValueType::String(_) => val1 = 0.0,
                 }
             }
             else { val1 = 0.0 };
@@ -365,10 +381,10 @@ impl OutputsWidget {
             if cell2.valid {
                 let val =  &cell2.value;
                 match val {
-                    ValueType::BoolValue(b) => val2 = 0.0,
-                    ValueType::IntegerValue(x) => val2 = x.clone() as f64,
+                    ValueType::BoolValue(_) => val2 = 0.0,
+                    ValueType::IntegerValue(x) => val2 = *x as f64,
                     ValueType::FloatValue(n) => val2 = *n,
-                    ValueType::String(s) => val2 = 0.0,
+                    ValueType::String(_) => val2 = 0.0,
                 }
             }
             else { val2 = 0.0 };
@@ -401,12 +417,12 @@ impl OutputsWidget {
                 .title("Second_Range")
                 .bounds([min_val2, max_val2])
                 .style(Style::default().fg(Color::Gray))
-                .labels([min_val1.to_string(), max_val1.to_string()])
+                .labels([min_val2.to_string(), max_val2.to_string()])
         );
         frame.render_widget(chart, area);
     }
 
-    pub fn draw_idle(&mut self, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) {
+    pub fn draw_idle(&mut self, area: Rect, frame: &mut Frame, _styleguide: &StyleGuide) {
         let paragraph = Paragraph::new(Line::from("Nothing to see.."))
         .block(Block::bordered().title("Output"))
         .centered();
@@ -414,7 +430,7 @@ impl OutputsWidget {
         frame.render_widget(paragraph, area);
     }
 
-    pub fn draw_text(&mut self, text: String, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) {
+    pub fn draw_text(&mut self, text: String, area: Rect, frame: &mut Frame, _styleguide: &StyleGuide) {
         let paragraph = Paragraph::new(Line::from(text))
         .block(Block::bordered().title("Output"))
         .wrap(Wrap { trim: true });
@@ -428,9 +444,9 @@ impl OutputsWidget {
 
 
 
-pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) -> () {
+pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) {
 
-    let COLUMN_WIDTH = 5;
+    let column_width = 5;
     // let mut area = f.area();
     // Table block (outer border + title)
     let block = Block::default()
@@ -438,7 +454,7 @@ pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect
         .borders(Borders::ALL);
 
     let row_max = cmp::min(row + area.height.saturating_sub(2) as usize, sheet.rows as usize);
-    let col_max = cmp::min(col + area.width.saturating_sub(COLUMN_WIDTH+2).saturating_div(COLUMN_WIDTH+2) as usize, sheet.columns as usize);
+    let col_max = cmp::min(col + area.width.saturating_sub(column_width+2).saturating_div(column_width+2) as usize, sheet.columns as usize);
 
     // Header row
     let mut row_heads_vec: Vec<String> = vec![String::from("")];
@@ -466,15 +482,15 @@ pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect
     for i in row..row_max {
         let mut curr_row_vec = vec![(i+1).to_string()];
         for j in col..col_max {
-            let colref = sheet.data[j as usize].borrow();
-            if i as usize >= colref.cells.len()
+            let colref = sheet.data[j].borrow();
+            if i >= colref.cells.len()
             {
                 curr_row_vec.push(String::from("~"));
                 continue
             } 
             else
             {
-                let cell = colref.cells[i as usize].borrow();
+                let cell = colref.cells[i].borrow();
                 if cell.valid {
                     let val =  &cell.value;
                     match val {
@@ -508,7 +524,7 @@ pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect
         })
         .collect();
 
-    let widths = vec![Constraint::Length(COLUMN_WIDTH); num_cols];
+    let widths = vec![Constraint::Length(column_width); num_cols];
     // Build the table
     let table = Table::new(rows, widths)
         .header(header)
