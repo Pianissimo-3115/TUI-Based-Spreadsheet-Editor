@@ -28,6 +28,7 @@ extern {
     "Sleep" => Token::Sleep,
     "Not" => Token::Not,
 
+    "isSubstr" => Token::IsSubstr,
     "Round" => Token::Round,
     "Count" => Token::Count,
     "IfElse" => Token::IfElse,
@@ -211,6 +212,7 @@ MonoFuncs: MonoFunction = {
 
 BinaryFuncs: BinaryFunction = {
     "Round" => BinaryFunction::Round,
+    "isSubstr" => BinaryFunction::IsSubstr,
 }
 
 TernaryFuncs: TernaryFunction = {

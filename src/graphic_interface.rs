@@ -251,7 +251,8 @@ impl CellDetailsWidget {
             data = vec![
                 vec![String::from("Column"), col.to_string()],
                 vec![String::from("Row"), row.to_string()],
-                vec![String::from("Value"), String::from("~")]
+                vec![String::from("Value"), String::from("~")],
+                vec![String::from("Expression"), String::from("~")]
             ];
         }
         else {
@@ -266,7 +267,12 @@ impl CellDetailsWidget {
                         ValueType::IntegerValue(x) => x.to_string(),
                         ValueType::FloatValue(n) => n.to_string(),
                         ValueType::String(s) => s.to_string(),
-                    }]
+                    }],
+                vec![String::from("Expression"),
+                    match &curr_cell.cell_func {
+                        Some(_) => curr_cell.formula.clone(),
+                        None => String::from("~"),
+                    }],
             ];
         }
 

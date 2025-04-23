@@ -119,6 +119,8 @@ pub enum Token {
     Undo,
     #[token("redo")]
     Redo,
+    #[token("MakeChart")]
+    MakeChart,
     #[token("copy_cell_value")]
     CopyCellValue,
     #[token("copy_cell_formula")]
