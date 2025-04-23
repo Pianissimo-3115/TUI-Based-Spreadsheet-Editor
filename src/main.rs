@@ -360,7 +360,7 @@ fn copy_range_value(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &[Rc<RefCell<Sh
     }
 }
 
-fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
+fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>]) -> Result<(), String>
 {
     let sheet_ref = Rc::clone(&sheets[addr1.sheet as usize]);
     let sheet = sheet_ref.borrow();
@@ -370,7 +370,7 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
     // drop(column);
     let cell = cell_rc.borrow();
     let func = cell.cell_func.clone();
-    
+    drop(cell);
     let sheet_ref2 = Rc::clone(&sheets[addr2.sheet as usize]);
     let sheet2 = sheet_ref2.borrow();
     let column_ref2 = &sheet2.data[addr2.col as usize];
@@ -378,14 +378,14 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
     let cell_rc2 = Rc::clone(&column2[addr2.row as usize]);
     // drop(column);
     let mut cell2 = cell_rc2.borrow_mut();
+    let old_func = cell2.cell_func.clone();
     
-    cell2.cell_func = func.clone(); 
+    cell2.cell_func = func.clone();
     drop(cell2);
-    evaluate(sheets, &addr2, &func);
-
+    evaluate(sheets, &addr2, &old_func)
 }
 
-fn copy_range_function(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &mut [Rc<RefCell<Sheet>>])
+fn copy_range_function(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &mut [Rc<RefCell<Sheet>>]) -> Result<(), String>
 {
     let mut n = 0;
     let mut m = 0;
@@ -393,12 +393,13 @@ fn copy_range_function(addr1:Addr, addr2:Addr, addr3: Addr, sheets: &mut [Rc<Ref
     {
         for j in addr1.col..=addr2.col
         {
-            copy_cell_function(Addr{sheet: addr1.sheet, row: i, col: j}, Addr{sheet: addr3.sheet, row: addr3.row + n, col: addr3.col + m}, sheets);
+            copy_cell_function(Addr{sheet: addr1.sheet, row: i, col: j}, Addr{sheet: addr3.sheet, row: addr3.row + n, col: addr3.col + m}, sheets)?;
             m += 1;
         }
         n += 1;
         m = 0;
     }
+    Ok(())
 }
 
 fn autofill_ap(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>>]) -> Result<(),String>
@@ -1397,13 +1398,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     },
                     ast::OtherCommand::CopyCellFormulae(addr1, addr2) =>
                     {
-                        copy_cell_function(addr1, addr2,&mut sheetstore.data);
-                        last_err_msg = String::from("ok");
+                        match copy_cell_function(addr1, addr2,&mut sheetstore.data)
+                        {
+                            Ok(_) => 
+                            {
+                                last_err_msg = String::from("ok");
+                            }
+                            Err(e) => 
+                            {
+                                last_err_msg = format!("Error occured during copy: {}", e);
+                            }
+                        }
                     },
                     ast::OtherCommand::CopyRangeFormulae(addr1,addr2, addr3 ) =>
                     {
-                        copy_range_function(addr1, addr2, addr3, &mut sheetstore.data);
-                        last_err_msg = String::from("ok");
+                        match copy_range_function(addr1, addr2, addr3, &mut sheetstore.data)
+                        {
+                            Ok(_) => last_err_msg = String::from("ok"),
+                            Err(e) => last_err_msg = format!("Error occured during copy: {}", e)
+                        }
+                        
                     },
                     ast::OtherCommand::CopyRangeVals(addr1,addr2, addr3) =>
                     {

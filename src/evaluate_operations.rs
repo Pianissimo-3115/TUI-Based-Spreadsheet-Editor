@@ -1244,6 +1244,7 @@ fn dfs(sheets: &[Rc<RefCell<Sheet>>],current_cell: &Addr, visited: &mut HashMap<
     {
         if rec_stack.contains_key(i) 
         {
+            println!("cycle detected");
             return Err(format!("Cyclic dependency detected at cell ({}, {})", i.row+1, i.col+1));
         }
         else if visited.contains_key(i) 
@@ -1355,6 +1356,8 @@ pub fn evaluate(sheets: &mut [Rc<RefCell<Sheet>>], cell: &Addr, old_func: &Optio
 
     update_parent_avls(cell, sheets, dependencies)?;
     let temp = update_children(sheets, cell);
+    println!("{temp:?}");
+    println!("{old_func:?}");
     if let Err(strr) = temp 
     {
         // kya sleep me negative hai to restore karni hai values? //Yes
