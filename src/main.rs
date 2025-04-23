@@ -148,7 +148,7 @@ impl SheetStorage {
     }
 
     pub fn remove_sheet(&mut self, name: &str) -> Option<usize> {
-
+        
         for i in 0..self.map.len() {
             if self.map[i].0 == name {
                 let removed_num = self.map[i].1;
@@ -1206,20 +1206,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         return Ok(());
                     }
                     KeyCode::Char('w') if key.kind == KeyEventKind::Press => {
-                        let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
-                        curr_row = cmp::max(0, cmp::min(curr_row as i64 -1 , curr_sheet.rows as i64 - 10)) as usize;
+                        // let _curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
+                        curr_row = curr_row.saturating_sub(1);
                     }
                     KeyCode::Char('s') if key.kind == KeyEventKind::Press => {
                         let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
-                        curr_row = cmp::max(0, cmp::min(curr_row as i64 +1 , curr_sheet.rows as i64 - 10)) as usize;
+                        curr_row = cmp::min(curr_row.saturating_add(1) , curr_sheet.rows.saturating_sub(1) as usize)
                     }
                     KeyCode::Char('d') if key.kind == KeyEventKind::Press => {
                         let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
-                        curr_col = cmp::max(0, cmp::min(curr_col as i64 +1 , curr_sheet.columns as i64 - 10)) as usize;
+                        curr_col =  cmp::min(curr_col.saturating_add(1) , curr_sheet.columns.saturating_sub(1) as usize);
                     }
                     KeyCode::Char('a') if key.kind == KeyEventKind::Press => {
-                        let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
-                        curr_col = cmp::max(0, cmp::min(curr_col as i64 -1 , curr_sheet.columns as i64 - 10)) as usize;
+                        // let _curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
+                        curr_col = curr_col.saturating_sub(1);
                     }
                     KeyCode::Up if key.kind == KeyEventKind::Press=> {
                         history_widget.scroll_amt = history_widget.scroll_amt.saturating_sub(1)
@@ -1477,36 +1477,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 match cmd 
                 {
                     ast::OtherCommand::AddSheet(s, c, r) => {
-                        let res = sheetstore.new_sheet(s.as_str(), c, r);
-                        if res.is_none() {
-                            last_err_msg = format!("Sheet name \"{}\" already exists.", s);
+                        if c==0 || r==0 {
+                            last_err_msg = String::from("Column and row size cannot be zero.")
                         }
-                        else { last_err_msg = String::from("ok") }
+                        else {
+                            let res = sheetstore.new_sheet(s.as_str(), c, r);
+                            if res.is_none() {
+                                last_err_msg = format!("Sheet name \"{}\" already exists.", s);
+                            }
+                            else { last_err_msg = String::from("ok") }
+                        }
                     }
                     ast::OtherCommand::RemoveSheet(s) => {
-                        if let Some(sheet_num) = sheetstore.num_from_name(s.as_str())
-                        {
-                            let sheet_rc = Rc::clone(&sheetstore.data[sheet_num]);
-                            let sheet = sheet_rc.borrow();
-                            let num_rows = sheet.rows;
-                            let num_cols = sheet.columns;
-                            for i in 0..num_cols
+                        if sheetstore.map.len() == 1 {
+                            last_err_msg = String::from("Cannot use remove sheet when only one sheet remains.");
+                        }
+                        else {
+                            if let Some(sheet_num) = sheetstore.num_from_name(s.as_str())
                             {
-                                let column_ref = &sheet.data[i as usize];
-                                let column = column_ref.borrow();
-                                for j in 0..num_rows
+
+                                let sheet_rc = Rc::clone(&sheetstore.data[sheet_num]);
+                                let sheet = sheet_rc.borrow();
+                                let num_rows = sheet.rows;
+                                let num_cols = sheet.columns;
+                                for i in 0..num_cols
                                 {
-                                    let cell_rc = Rc::clone(&column.cells[j as usize]);
-                                    let mut cell = cell_rc.borrow_mut();
-                                    invalidate_children(&mut sheetstore.data, cell.addr.clone());
-                                    cell.children.clear();
+                                    let column_ref = &sheet.data[i as usize];
+                                    let column = column_ref.borrow();
+                                    for j in 0..num_rows
+                                    {
+                                        if j as usize >= column.cells.len() {
+                                            break;
+                                        }
+                                        let cell_rc = Rc::clone(&column.cells[j as usize]);
+                                        let mut cell = cell_rc.borrow_mut();
+                                        invalidate_children(&mut sheetstore.data, cell.addr.clone());
+                                        cell.children.clear();
+                                    }
                                 }
                             }
+
+                            let res = sheetstore.remove_sheet(s.as_str());
+                            if res.is_none() {
+                                last_err_msg = format!("Sheet name \"{}\" not found.", s);
+                            } else { last_err_msg = String::from("ok"); curr_sheet_number = sheetstore.map[0].1; curr_col = 0; curr_row = 0; }
                         }
-                        let res = sheetstore.remove_sheet(s.as_str());
-                        if res.is_none() {
-                            last_err_msg = format!("Sheet name \"{}\" not found.", s);
-                        } else { last_err_msg = String::from("ok") }
                     }
                     ast::OtherCommand::RenameSheet(s, snew) => {
                         let res = sheetstore.rename_sheet(s.as_str(), snew.as_str());
@@ -1642,12 +1657,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         }
                     },
                     ast::OtherCommand::Resize(s, c, r) => {
-                        match sheetstore.num_from_name(s.as_str()) {
-                            Some(sheet_num) => {
-                                sheetstore.data[sheet_num].borrow_mut().resize(r, c);  //NOTE: r aur c ka order har jag asame kar dena chahiye ajeeb lag raha
-                                last_err_msg = String::from("ok");
-                            } 
-                            None => last_err_msg = format!("Sheet name \"{}\" not found.", s)
+                        if c==0 || r==0 {
+                            last_err_msg = String::from("Column and row size cannot be zero.")
+                        }
+                        else {
+                            match sheetstore.num_from_name(s.as_str()) {
+                                Some(sheet_num) => {
+                                    sheetstore.data[sheet_num].borrow_mut().resize(r, c);  //NOTE: r aur c ka order har jag asame kar dena chahiye ajeeb lag raha
+                                    last_err_msg = String::from("ok");
+                                } 
+                                None => last_err_msg = format!("Sheet name \"{}\" not found.", s)
+                            }
                         }
                     },
                     ast::OtherCommand::CopyCellVals(addr1, addr2) =>
@@ -1753,14 +1773,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         }
                         curr_sheet_number = addr.sheet as usize;
                         let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
-                        curr_col = cmp::max(0, cmp::min(addr.col as i64, curr_sheet.columns as i64 - 10)) as usize;
-                        curr_row = cmp::max(0, cmp::min(addr.row as i64, curr_sheet.rows as i64 - 10)) as usize;
+                        curr_row = cmp::min(addr.row, curr_sheet.rows.saturating_sub(1)) as usize;
+                        curr_col = cmp::min(addr.col, curr_sheet.columns.saturating_sub(1)) as usize; 
                     },
 
-                    ast::DisplayCommand::MoveUp => curr_row = cmp::max(0, cmp::min(curr_row as i64 -1 , curr_sheet.rows as i64 - 10)) as usize,
-                    ast::DisplayCommand::MoveDown => curr_row = cmp::max(0, cmp::min(curr_row as i64 +1 , curr_sheet.rows as i64 - 10)) as usize,
-                    ast::DisplayCommand::MoveRight => curr_col = cmp::max(0, cmp::min(curr_col as i64 +1 , curr_sheet.columns as i64 - 10)) as usize,
-                    ast::DisplayCommand::MoveLeft => curr_col = cmp::max(0, cmp::min(curr_col as i64 -1 , curr_sheet.columns as i64 - 10)) as usize,
+                    ast::DisplayCommand::MoveUp => curr_row = curr_row.saturating_sub(10),
+                    ast::DisplayCommand::MoveDown => curr_row = cmp::min(curr_row.saturating_add(10) , curr_sheet.rows.saturating_sub(10) as usize),
+                    ast::DisplayCommand::MoveRight => curr_col = cmp::min(curr_col.saturating_add(10) , curr_sheet.columns.saturating_sub(10) as usize),
+                    ast::DisplayCommand::MoveLeft => curr_col = curr_col.saturating_sub(10),
                 };
                 last_err_msg = String::from("ok");
                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
@@ -1934,5 +1954,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     disable_raw_mode()?;
     execute!(io::stdout(), LeaveAlternateScreen)?;
+    io::stdout().flush().unwrap();
     Ok(())
 }

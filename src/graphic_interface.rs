@@ -469,7 +469,7 @@ pub fn draw_table(col: usize, row: usize, sheet: &Sheet, title: &str, area: Rect
             curr_col -= 1;
             curr_col /= 26;
         }
-        row_heads_vec.push(curr);
+        row_heads_vec.push(curr.chars().rev().collect::<String>());
     }
     let num_cols = row_heads_vec.len();
 
