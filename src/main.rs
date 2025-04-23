@@ -388,6 +388,26 @@ fn copy_cell_value(addr1:Addr, addr2:Addr, sheets: &[Rc<RefCell<Sheet>>])
     // drop(column);
     let mut cell2 = cell_rc2.borrow_mut();
     
+    
+    match value.clone() 
+    {
+        ValueType::IntegerValue(val) => {
+            cell2.cell_func = Some(cell_operations::CellFunc::new(Expr::Integer(val)));
+            cell2.formula = val.to_string();
+        }
+        ValueType::FloatValue(val) => {
+            cell2.cell_func = Some(cell_operations::CellFunc::new(Expr::Float(val)));
+            cell2.formula = val.to_string();
+        }
+        ValueType::BoolValue(val) => {
+            cell2.cell_func = Some(cell_operations::CellFunc::new(Expr::Bool(val)));
+            cell2.formula = val.to_string();
+        }
+        ValueType::String(val) => {
+            cell2.cell_func = Some(cell_operations::CellFunc::new(Expr::String(val.clone())));
+            cell2.formula = val.clone();
+        }
+    }
     cell2.value = value;
 }
 
@@ -416,6 +436,7 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
     // drop(column);
     let cell = cell_rc.borrow();
     let func = cell.cell_func.clone();
+    let formula = cell.formula.clone();
     drop(cell);
     let sheet_ref2 = Rc::clone(&sheets[addr2.sheet as usize]);
     let sheet2 = sheet_ref2.borrow();
@@ -426,7 +447,8 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
     let mut cell2 = cell_rc2.borrow_mut();
     let old_func = cell2.cell_func.clone();
     cell2.cell_func = func.clone();
-    
+    cell2.formula = formula;
+    drop(cell2);
     evaluate(sheets, &addr2, &old_func)
 
 }
