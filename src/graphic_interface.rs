@@ -56,8 +56,8 @@ impl StyleGuide {
             inp_box_idle_mode: Style::default(),
             inp_box_editing_mode: Style::default().fg(Color::Yellow),
             history_widget: Style::default(),
-            tabs_unselected: Style::default().fg(Color::Green),
-            tabs_selected: Style::default().fg(Color::Yellow),
+            tabs_unselected: Style::default().fg(tailwind::SLATE.c500),
+            tabs_selected: Style::default().fg(tailwind::BLUE.c100),
             cell_details_header: Style::default().fg(Color::White).bg(tailwind::BLUE.c900),
             cell_details_even_row: Style::default().bg(tailwind::SLATE.c950),
             cell_details_odd_row: Style::default().bg(tailwind::SLATE.c900),
@@ -148,7 +148,7 @@ impl TextInputWidget {
         }
     }
 
-    fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
+    pub fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
         new_cursor_pos.clamp(0, self.input.chars().count())
     }
 

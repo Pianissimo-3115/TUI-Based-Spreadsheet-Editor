@@ -1149,6 +1149,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let styleguide = StyleGuide::new();
     let mut input_widget = TextInputWidget::new();
     let mut history_widget = HistoryWidget::new();
+    let mut jump_to_last = true;
     let mut tabs_widget = TabsWidget{tabs: vec![], index: 0};
     let mut celldetails_widget = CellDetailsWidget{};
     let mut outputs_widget: OutputsWidget = OutputsWidget::new();
@@ -1184,6 +1185,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             tabs_widget.draw(tabs_area, frame, &styleguide);
             celldetails_widget.draw(curr_col, curr_row, &sheetstore.data[curr_sheet_number].borrow(),detail_area, frame, &styleguide);
             draw_table(curr_col, curr_row, &sheetstore.data[curr_sheet_number].borrow(), "Spreadsheet", table_area, frame, &styleguide);
+
+            if jump_to_last {
+                history_widget.scroll_amt = history_widget.history.len().saturating_sub(history_area.height.saturating_sub(2) as usize);
+            }
             history_widget.draw(history_area, frame, &styleguide);
             input_widget.draw(input_area, frame, &styleguide);
             if show_graph {
@@ -1222,10 +1227,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         curr_col = curr_col.saturating_sub(1);
                     }
                     KeyCode::Up if key.kind == KeyEventKind::Press=> {
-                        history_widget.scroll_amt = history_widget.scroll_amt.saturating_sub(1)
+                        history_widget.scroll_amt = history_widget.scroll_amt.saturating_sub(1);
+                        jump_to_last = false;
                     }
                     KeyCode::Down if key.kind == KeyEventKind::Press => {
                         history_widget.scroll_amt = cmp::min(history_widget.scroll_amt.saturating_add(1), history_widget.history.len().saturating_sub(15));
+                        jump_to_last = false;
                     }
                     KeyCode::Right if key.kind == KeyEventKind::Press => {
                         curr_sheet_number = sheetstore.map[(sheetstore.list_index_from_num(curr_sheet_number).expect("curr_sheet_number somehow no longer valid").saturating_add(1))%sheetstore.map.len()].1;
@@ -1310,7 +1317,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     last_err_msg = String::from("Invalid Token"); 
                     // last_time = 0;
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop
                 },
                 Err(ParseError::User{error: tokenscmds::LexicalError::InvalidInteger(x)}) => 
@@ -1318,7 +1325,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     last_err_msg = format!("Invalid Integer {:?}", x); 
                     // last_time = 0;
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop
                 }, 
                 Err(e) => 
@@ -1326,7 +1333,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     last_err_msg = format!("This error: {:?}", e); 
                     // last_time = 0;
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop
                 }
             };
@@ -1346,7 +1353,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     last_err_msg = String::from("Invalid Token"); 
                     // last_time = 0;
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop
                 },
                 Err(ParseError::User{error: tokensexpr::LexicalError::InvalidInteger(x)}) => 
@@ -1354,7 +1361,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     last_err_msg = format!("Invalid Integer {:?}", x); 
                     // last_time = 0;
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop
                 }, 
                 Err(e) => 
@@ -1362,7 +1369,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     last_err_msg = format!("This error: {:?}", e); 
                     // last_time = 0;
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop
                 }
             };
@@ -1385,14 +1392,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 // last_time = 0;
                                 last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_1.col >= cell_sheet.columns {
                                 // last_time = 0;
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
@@ -1413,7 +1420,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                     // last_time = 0;
                                     last_err_msg = String::from("Range addresses must belong to the same sheet.");
                                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                    jump_to_last = true;
                                     continue 'mainloop
                                 }
                             };
@@ -1422,42 +1429,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 // last_time = 0;
                                 last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_1.col >= cell_sheet.columns {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_2.row >= cell_sheet.rows {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_2.col >= cell_sheet.columns {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_1.col > a_2.col {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_1.row > a_2.row {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             for i in a_1.col..=a_2.col {
@@ -1754,7 +1761,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 
                 };
                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                jump_to_last = true;
                 continue 'mainloop
             }
             ast::Command::DisplayCmd(d_cmd) => {
@@ -1768,7 +1775,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             // last_time = 0;
                             last_err_msg = String::from("Address out of bounds");
                             history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                            history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                            jump_to_last = true;
                             continue 'mainloop
                         }
                         curr_sheet_number = addr.sheet as usize;
@@ -1784,7 +1791,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 };
                 last_err_msg = String::from("ok");
                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                jump_to_last = true;
                 continue 'mainloop
             },
             ast::Command::Quit => exit = true,
@@ -1797,14 +1804,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     // last_time = 0;
                     last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop;
                 }
                 if a.col >= cell_sheet.columns {
                     // last_time = 0;
                     last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop;
                 }
                 let mut col = cell_sheet.data[a.col as usize].borrow_mut();
@@ -1823,14 +1830,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 // last_time = 0;
                                 last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_1.col >= cell_sheet.columns {
                                 // last_time = 0;
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
@@ -1851,7 +1858,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                     // last_time = 0;
                                     last_err_msg = String::from("Range addresses must belong to the same sheet.");
                                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                    jump_to_last = true;
                                     continue 'mainloop
                                 }
                             };
@@ -1860,42 +1867,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                 // last_time = 0;
                                 last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_1.col >= cell_sheet.columns {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_2.row >= cell_sheet.rows {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_2.col >= cell_sheet.columns {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_1.col > a_2.col {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             if a_1.row > a_2.row {
                                 // last_time = 0;
                                 last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
                                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                                jump_to_last = true;
                                 continue 'mainloop;
                             }
                             for i in a_1.col..=a_2.col {
@@ -1932,7 +1939,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     // last_time = start.elapsed().as_secs();
                     last_err_msg = strr;
                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);
+                    jump_to_last = true;
                     continue 'mainloop;   
                 }
                 else 
@@ -1950,7 +1957,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         // last_time = start.elapsed().as_secs();
         last_err_msg = String::from("ok");
         history_widget.history.push((inp.clone(), last_err_msg.clone()));
-        history_widget.scroll_amt = history_widget.history.len().saturating_sub(15);}
+        jump_to_last = true;}
 
     disable_raw_mode()?;
     execute!(io::stdout(), LeaveAlternateScreen)?;
