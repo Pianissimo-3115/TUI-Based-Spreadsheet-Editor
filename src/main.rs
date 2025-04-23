@@ -447,6 +447,11 @@ fn copy_cell_function(addr1:Addr, addr2:Addr, sheets: &mut [Rc<RefCell<Sheet>>])
     let mut cell2 = cell_rc2.borrow_mut();
     let old_func = cell2.cell_func.clone();
     cell2.cell_func = func.clone();
+    if let Some(func) = func.clone()
+    {
+        let exp = update_cell_func(func.expression, addr1.sheet, addr2.sheet);
+        cell2.cell_func = Some(CellFunc::new(exp));
+    }
     cell2.formula = formula;
     drop(cell2);
     evaluate(sheets, &addr2, &old_func)
