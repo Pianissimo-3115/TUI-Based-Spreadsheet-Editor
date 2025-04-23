@@ -227,24 +227,30 @@ fn import_csv(csv_name: &str, sheet_idx: u32) -> Result<Sheet, String>
                     cell.cell_func = Some(cell_operations::CellFunc::new(Expr::Integer(val)));
                     cell.valid = true;
                     cell.value = cell_operations::ValueType::IntegerValue(val);
+                    cell.formula = raw_val;
                 }
                 else if let Ok(val) = raw_val.parse::<f64>()
                 {
                     cell.cell_func = Some(cell_operations::CellFunc::new(Expr::Float(val)));
                     cell.valid = true;
                     cell.value = cell_operations::ValueType::FloatValue(val);
+                    cell.formula = raw_val;
+
                 }
                 else if let Ok(val) = raw_val.parse::<bool>() 
                 {
                     cell.cell_func = Some(cell_operations::CellFunc::new(Expr::Bool(val)));
                     cell.valid = true;
                     cell.value = cell_operations::ValueType::BoolValue(val);
+                    cell.formula = raw_val;
+
                 } 
                 else 
                 {
-                    cell.cell_func = Some(cell_operations::CellFunc::new(Expr::String(raw_val.clone())));
                     cell.valid = true;
-                    cell.value = cell_operations::ValueType::String(raw_val);
+                    cell.value = cell_operations::ValueType::String(raw_val.clone());
+                    cell.cell_func = Some(cell_operations::CellFunc::new(Expr::String(raw_val.clone())));
+                    cell.formula = raw_val;
                 }
                 
                 sheet.data[col].borrow_mut().cells.push(Rc::new(RefCell::new(cell)));
