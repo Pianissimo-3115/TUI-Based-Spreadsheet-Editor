@@ -688,7 +688,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
             }
             (ValueType::FloatValue(val1), ValueType::FloatValue(val2)) =>
             {
-                let common_ratio = val2-val1;
+                let common_ratio = val2/val1;
                 for row in start_addr.row+2..= end_addr.row
                 {
                     let cell_rc = Rc::clone(&column[row as usize]);
@@ -776,7 +776,7 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
             }
             (ValueType::FloatValue(val1), ValueType::IntegerValue(val2)) =>
             {
-                let common_diff = (val2 as f64) - val1;
+                let common_diff = (val2 as f64) / val1;
                 for col in start_addr.col+2..= end_addr.col
                 {
                     
