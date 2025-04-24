@@ -21,7 +21,7 @@ pub enum ParserError{
 //     },
 // }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Command {
     DisplayCmd(DisplayCommand),  //Note: IS Box<DisplayCommand> better? Display Command is a finite data type, but expr was not.
     OtherCmd(OtherCommand),
@@ -29,7 +29,7 @@ pub enum Command {
     Quit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DisplayCommand {
     EnableOut,
     DisableOut,
@@ -40,7 +40,7 @@ pub enum DisplayCommand {
     MoveRight,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OtherCommand {
     AddSheet(String, usize, usize),
     RemoveSheet(String),

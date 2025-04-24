@@ -803,7 +803,8 @@ fn autofill_gp(start_addr: Addr, end_addr: Addr, sheets: &mut [Rc<RefCell<Sheet>
     Ok(())
 }
 
-fn invalidate_children(sheets: &mut [Rc<RefCell<Sheet>>], cell_addr: Addr) {
+fn invalidate_children(sheets: &mut [Rc<RefCell<Sheet>>], cell_addr: Addr) 
+{
     let Some(sheet_ref) = sheets.get(cell_addr.sheet as usize) else {
         return;
     };
@@ -835,14 +836,14 @@ fn invalidate_children(sheets: &mut [Rc<RefCell<Sheet>>], cell_addr: Addr) {
 }
 
 
-fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(Addr, Option<CellFunc> /* old func */, Option<CellFunc> /* new func */)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, Option<CellFunc>)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
+fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(bool, Addr, Option<CellFunc> /* old func */, bool, Option<CellFunc> /* new func */, bool)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
 {
     let temp = undo_history.last();
     if temp.is_none()
     {
         return Err("Already at the earliest change".to_string());
     }
-    let (addr, old_func, new_func) = temp.unwrap().clone();
+    let (undoable, addr, old_func,old_valid, new_func, new_valid) = temp.unwrap().clone();
     let sheet_ref = &sheets[addr.sheet as usize];
     let sheet = sheet_ref.borrow();
     let column_ref = &sheet.data[addr.col as usize];
@@ -851,15 +852,23 @@ fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(Addr, Option<C
     // drop(column);
     let mut cell = cell_rc.borrow_mut();
     let old_function = new_func.clone();
+    if undoable == false
+    {
+        return Err("Cannot undo non-assignment operation".to_string());
+    }
     if let Some(func) = old_func.clone()
     {
         cell.cell_func = Some(func);
     }
     else
     {
-        cell.cell_func = None;
+        cell.cell_func = Some(CellFunc::new(Expr::Integer(0)));
+        cell.formula = "0".to_string();
+        cell.value = ValueType::IntegerValue(0);
+        
     }
-    redo_history.push((addr.clone(),old_func.clone(),new_func.clone()));
+    cell.valid = old_valid.clone();
+    redo_history.push((addr.clone(),old_func.clone(),old_valid.clone(), new_func.clone(), new_valid.clone()));
     undo_history.pop();
     if redo_history.len() > settings.undo_history_limit as usize
     {
@@ -869,7 +878,7 @@ fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(Addr, Option<C
     Ok((cell.addr.clone(),old_function))
 }
 
-fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(Addr, Option<CellFunc>, Option<CellFunc> )>, redo_history: &mut Vec<(Addr, Option<CellFunc>, Option<CellFunc>)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
+fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(bool, Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
 {
     let temp = redo_history.last();
     if temp.is_none()
@@ -877,7 +886,7 @@ fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(Addr, Option<
         return Err("Already at the latest change".to_string());
     }
     // assert!(index < history.len() as i32);
-    let (addr, old_func, new_func) = temp.unwrap().clone();
+    let (addr, old_func, old_valid, new_func, new_valid) = temp.unwrap().clone();
     let sheet_ref = &sheets[addr.sheet as usize];
     let sheet = sheet_ref.borrow();
     let column_ref = &sheet.data[addr.col as usize];
@@ -894,7 +903,8 @@ fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(Addr, Option<
     {
         cell.cell_func = None;
     }
-    undo_history.push((addr.clone(),old_func.clone(),new_func.clone()));
+    cell.valid = new_valid.clone();
+    undo_history.push((true, addr.clone(),old_func.clone(), old_valid.clone(), new_func.clone(), new_valid.clone()));
     redo_history.pop();
     if undo_history.len() > settings.undo_history_limit as usize
     {
@@ -1188,8 +1198,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let settings = Settings::new();
     // let mut last_time = 0;
     let mut command_history_index = 0;
-    let mut undo_history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
-    let mut redo_history: Vec<(Addr, Option<CellFunc>, Option<CellFunc>)> = vec![];
+    let mut undo_history: Vec<(bool, Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)> = vec![];
+    let mut redo_history: Vec<(Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)> = vec![];
 
     'mainloop: while !exit {
         // let mut start = Instant::now();
@@ -1399,7 +1409,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         let address: Addr;
         let new_function: Option<CellFunc>;
         // start = Instant::now();
-        match ast {
+        match ast.clone() {
             ast::Command::OtherCmd(cmd) => { 
                 for dep in &dep_vec {
                     match dep {
@@ -1534,8 +1544,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                                             break;
                                         }
                                         let cell_rc = Rc::clone(&column.cells[j as usize]);
-                                        let mut cell = cell_rc.borrow_mut();
+                                        let cell = cell_rc.borrow();
                                         invalidate_children(&mut sheetstore.data, cell.addr.clone());
+                                        drop(cell);
+                                        let mut cell = cell_rc.borrow_mut();
                                         cell.children.clear();
                                     }
                                 }
@@ -1815,130 +1827,132 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
 
                 let old_func: Option<CellFunc>;
+                let old_valid: bool;
                 {
-                let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
-                if a.row >= cell_sheet.rows {
-                    // last_time = 0;
-                    last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
-                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    jump_to_last = true;
-                    continue 'mainloop;
-                }
-                if a.col >= cell_sheet.columns {
-                    // last_time = 0;
-                    last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
-                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                    jump_to_last = true;
-                    continue 'mainloop;
-                }
-                let mut col = cell_sheet.data[a.col as usize].borrow_mut();
-                if col.cells.len() <= a.row as usize
-                {
-                    let mut p = col.cells.len() as u32;
-                    col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p-1, col: a.col})))});
-                }
-                drop(col);
+                    let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
+                    if a.row >= cell_sheet.rows {
+                        // last_time = 0;
+                        last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
+                        history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                        jump_to_last = true;
+                        continue 'mainloop;
+                    }
+                    if a.col >= cell_sheet.columns {
+                        // last_time = 0;
+                        last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
+                        history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                        jump_to_last = true;
+                        continue 'mainloop;
+                    }
+                    let mut col = cell_sheet.data[a.col as usize].borrow_mut();
+                    if col.cells.len() <= a.row as usize
+                    {
+                        let mut p = col.cells.len() as u32;
+                        col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p-1, col: a.col})))});
+                    }
+                    drop(col);
 
-                for dep in &dep_vec {
-                    match dep {
-                        ast::ParentType::Single(a_1) => {
-                            let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
-                            if a_1.row >= cell_sheet.rows {
-                                // last_time = 0;
-                                last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
-                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                jump_to_last = true;
-                                continue 'mainloop;
-                            }
-                            if a_1.col >= cell_sheet.columns {
-                                // last_time = 0;
-                                last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
-                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                jump_to_last = true;
-                                continue 'mainloop;
-                            }
-                            let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
-                            if col.cells.len() <= a_1.row  as usize
-                            {
-                                let mut p = col.cells.len() as u32;
-                                col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p - 1, col: a_1.col})))});
-                            }
-                            drop(col);
-                        },
-                        ast::ParentType::Range(a_1, a_2) => {
-                            
-                            let cell_sheet = { 
-                                if a_1.sheet == a_2.sheet {
-                                    &sheetstore.data[a_1.sheet as usize].borrow()
-                                }
-                                else {
+                    for dep in &dep_vec {
+                        match dep {
+                            ast::ParentType::Single(a_1) => {
+                                let cell_sheet = &sheetstore.data[a_1.sheet as usize].borrow();
+                                if a_1.row >= cell_sheet.rows {
                                     // last_time = 0;
-                                    last_err_msg = String::from("Range addresses must belong to the same sheet.");
+                                    last_err_msg = String::from("Address row out of range"); //NOTE: Error messages are temporary.
                                     history_widget.history.push((inp.clone(), last_err_msg.clone()));
                                     jump_to_last = true;
-                                    continue 'mainloop
+                                    continue 'mainloop;
                                 }
-                            };
-
-                            if a_1.row >= cell_sheet.rows {
-                                // last_time = 0;
-                                last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
-                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                jump_to_last = true;
-                                continue 'mainloop;
-                            }
-                            if a_1.col >= cell_sheet.columns {
-                                // last_time = 0;
-                                last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
-                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                jump_to_last = true;
-                                continue 'mainloop;
-                            }
-                            if a_2.row >= cell_sheet.rows {
-                                // last_time = 0;
-                                last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
-                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                jump_to_last = true;
-                                continue 'mainloop;
-                            }
-                            if a_2.col >= cell_sheet.columns {
-                                // last_time = 0;
-                                last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
-                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                jump_to_last = true;
-                                continue 'mainloop;
-                            }
-                            if a_1.col > a_2.col {
-                                // last_time = 0;
-                                last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
-                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                jump_to_last = true;
-                                continue 'mainloop;
-                            }
-                            if a_1.row > a_2.row {
-                                // last_time = 0;
-                                last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
-                                history_widget.history.push((inp.clone(), last_err_msg.clone()));
-                                jump_to_last = true;
-                                continue 'mainloop;
-                            }
-                            for i in a_1.col..=a_2.col {
-                                let mut col = cell_sheet.data[i as usize].borrow_mut();
-                                if col.cells.len() <= a_2.row as usize
+                                if a_1.col >= cell_sheet.columns {
+                                    // last_time = 0;
+                                    last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    jump_to_last = true;
+                                    continue 'mainloop;
+                                }
+                                let mut col = cell_sheet.data[a_1.col as usize].borrow_mut();
+                                if col.cells.len() <= a_1.row  as usize
                                 {
                                     let mut p = col.cells.len() as u32;
-                                    col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p - 1, col: i})))});
+                                    col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p - 1, col: a_1.col})))});
                                 }
                                 drop(col);
-                            }
-                        },
+                            },
+                            ast::ParentType::Range(a_1, a_2) => {
+                                
+                                let cell_sheet = { 
+                                    if a_1.sheet == a_2.sheet {
+                                        &sheetstore.data[a_1.sheet as usize].borrow()
+                                    }
+                                    else {
+                                        // last_time = 0;
+                                        last_err_msg = String::from("Range addresses must belong to the same sheet.");
+                                        history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                        jump_to_last = true;
+                                        continue 'mainloop
+                                    }
+                                };
+
+                                if a_1.row >= cell_sheet.rows {
+                                    // last_time = 0;
+                                    last_err_msg = String::from("Range start address row out of range"); //NOTE: Error messages are temporary.
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    jump_to_last = true;
+                                    continue 'mainloop;
+                                }
+                                if a_1.col >= cell_sheet.columns {
+                                    // last_time = 0;
+                                    last_err_msg = String::from("Range start address column out of range"); //NOTE: Error messages are temporary.
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    jump_to_last = true;
+                                    continue 'mainloop;
+                                }
+                                if a_2.row >= cell_sheet.rows {
+                                    // last_time = 0;
+                                    last_err_msg = String::from("Range end address row out of range"); //NOTE: Error messages are temporary.
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    jump_to_last = true;
+                                    continue 'mainloop;
+                                }
+                                if a_2.col >= cell_sheet.columns {
+                                    // last_time = 0;
+                                    last_err_msg = String::from("Range end address column out of range"); //NOTE: Error messages are temporary.
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    jump_to_last = true;
+                                    continue 'mainloop;
+                                }
+                                if a_1.col > a_2.col {
+                                    // last_time = 0;
+                                    last_err_msg = String::from("Range start column higher than end column"); //NOTE: Error messages are temporary.
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    jump_to_last = true;
+                                    continue 'mainloop;
+                                }
+                                if a_1.row > a_2.row {
+                                    // last_time = 0;
+                                    last_err_msg = String::from("Range start row higher than end row"); //NOTE: Error messages are temporary.
+                                    history_widget.history.push((inp.clone(), last_err_msg.clone()));
+                                    jump_to_last = true;
+                                    continue 'mainloop;
+                                }
+                                for i in a_1.col..=a_2.col {
+                                    let mut col = cell_sheet.data[i as usize].borrow_mut();
+                                    if col.cells.len() <= a_2.row as usize
+                                    {
+                                        let mut p = col.cells.len() as u32;
+                                        col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: cell_sheet.sheet_idx, row: p - 1, col: i})))});
+                                    }
+                                    drop(col);
+                                }
+                            },
+                        }
                     }
-                }
 
                     let target_sheet = &sheetstore.data[a.sheet as usize].borrow();
                     let target_cell_rc = Rc::clone(& (target_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
                     let mut target_cell_ref = target_cell_rc.borrow_mut();
                     old_func = (target_cell_ref).cell_func.clone();
+                    old_valid = target_cell_ref.valid.clone();
                     (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});
                     new_function = target_cell_ref.cell_func.clone();
                     address = target_cell_ref.addr.clone();
@@ -1961,15 +1975,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 }
                 else 
                 {
-                    undo_history.push((address, old_func.clone(), new_function));
+                    let target_sheet = &sheetstore.data[a.sheet as usize].borrow();
+                    let target_cell_rc = Rc::clone(& (target_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
+                    let target_cell_ref = target_cell_rc.borrow();
+
+                    undo_history.push((true, address, old_func.clone(), old_valid.clone(), new_function.clone(), target_cell_ref.valid.clone()));
                     if undo_history.len() > settings.undo_history_limit as usize
                     {
                         undo_history.remove(0);
                     }
                     redo_history.clear();
                     
-                }              
+                }
+
+
             }
+        }
+        
+        match ast
+        {
+            ast::Command::OtherCmd(cmd) => {
+                match cmd
+                {
+                    ast::OtherCommand::Undo => {},
+                    ast::OtherCommand::Redo => {},
+                    _ =>
+                    {
+                        undo_history.push((false, Addr{sheet: 0, row: 0, col: 0}, None, false, None, false));
+                    }
+                }
+            },
+            _ => {}
         }
         // last_time = start.elapsed().as_secs();
         last_err_msg = String::from("ok");

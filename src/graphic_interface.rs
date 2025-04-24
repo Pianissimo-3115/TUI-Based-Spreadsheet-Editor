@@ -273,13 +273,19 @@ impl CellDetailsWidget {
             vec![
                 vec!["Column".to_string(), curr_cell.addr.col.to_string()],
                 vec!["Row".to_string(), curr_cell.addr.row.to_string()],
-                vec!["Value".to_string(),
-                    match &curr_cell.value {
-                        ValueType::BoolValue(b) => b.to_string(),
-                        ValueType::IntegerValue(x) => x.to_string(),
-                        ValueType::FloatValue(n) => n.to_string(),
-                        ValueType::String(s) => s.clone(),
-                    }],
+                vec!["Value".to_string(),{
+                    if curr_cell.valid {
+                        match &curr_cell.value {
+                            ValueType::BoolValue(b) => b.to_string(),
+                            ValueType::IntegerValue(x) => x.to_string(),
+                            ValueType::FloatValue(n) => n.to_string(),
+                            ValueType::String(s) => s.clone(),
+                        }
+                    } else {
+                        "~".to_string()
+                    }
+                }],
+
                 vec!["Expression".to_string(),
                     match &curr_cell.cell_func {
                         Some(_) => curr_cell.formula.clone(),
