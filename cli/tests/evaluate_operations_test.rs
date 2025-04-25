@@ -1,10 +1,10 @@
-use Rust_lab_2023CS10058_2023CS10552_2023CS50163::cell_operations::{
+use spreadsheet::cell_operations::{
     Cell, CellFunc, Sheet,
 };
-use Rust_lab_2023CS10058_2023CS10552_2023CS50163::ast::{
+use spreadsheet::ast::{
     Expr, AtomicExpr, Addr, RangeFunction, BinaryFunction, MonoFunction
 };
-use Rust_lab_2023CS10058_2023CS10552_2023CS50163::evaluate_operations::evaluate;
+use spreadsheet::evaluate_operations::evaluate;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn test_eval_atomic_exp() {
         let mut sheet = create_test_sheet();
-        if let Err(_) = evaluate(&mut sheet, &Addr { row: 0, col: 0 }, &None) {
+        if evaluate(&mut sheet, &Addr { row: 0, col: 0 }, &None).is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[0].borrow_mut()[0]));
@@ -99,7 +99,7 @@ mod tests {
         assert!(target_cell_ref.value == 5);      
         drop(target_cell_ref);
         
-        if let Err(_) = evaluate(&mut sheet, &Addr { row: 1, col: 0 }, &None) {
+        if evaluate(&mut sheet, &Addr { row: 1, col: 0 }, &None).is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[0].borrow_mut()[1]));
@@ -114,7 +114,7 @@ mod tests {
         let mut sheet = create_test_sheet();
         // Set cell (0,0) to 5
         sheet.data[0].borrow_mut()[0].borrow_mut().value = 5;
-        if let Err(_) = evaluate(&mut sheet, &Addr { row: 2, col: 0 }, &None) {
+        if evaluate(&mut sheet, &Addr { row: 2, col: 0 }, &None).is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[0].borrow_mut()[2]));
@@ -143,7 +143,7 @@ mod tests {
         sheet.data[0].borrow_mut()[0].borrow_mut().value = 5;
         sheet.data[1].borrow_mut()[1].borrow_mut().value = 3;
 
-        if let Err(_) = evaluate(&mut sheet, &Addr { row: 0, col: 2}, &None) {
+        if evaluate(&mut sheet, &Addr { row: 0, col: 2}, &None).is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[2].borrow_mut()[0]));
@@ -190,7 +190,7 @@ mod tests {
             expression: expr,
         });
 
-        if let Err(_) = evaluate(&mut sheet, &Addr { row: 0, col: 2}, &None) {
+        if evaluate(&mut sheet, &Addr { row: 0, col: 2}, &None).is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[2].borrow_mut()[0]));
@@ -246,7 +246,7 @@ mod tests {
             expression: expr,
         });
 
-        if let Err(_) = evaluate(&mut sheet, &Addr { row: 0, col: 2}, &None) {
+        if evaluate(&mut sheet, &Addr { row: 0, col: 2}, &None).is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[2].borrow_mut()[0]));
@@ -297,7 +297,7 @@ mod tests {
             expression: expr,
         });
 
-        if let Err(_) = evaluate(&mut sheet, &Addr { row: 0, col: 2}, &None) {
+        if evaluate(&mut sheet, &Addr { row: 0, col: 2}, &None).is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[2].borrow_mut()[0]));
@@ -376,7 +376,7 @@ mod tests {
             expression: expr,
         });
         let result = evaluate(&mut sheet, &Addr { row: 2, col: 1}, &None);
-        if let Err(_) = result {
+        if result.is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[1].borrow_mut()[2]));
@@ -430,7 +430,7 @@ mod tests {
             expression: expr,
         });
         let result = evaluate(&mut sheet, &Addr { row: 2, col: 1}, &None);
-        if let Err(_) = result {
+        if result.is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[1].borrow_mut()[2]));
@@ -485,7 +485,7 @@ mod tests {
             expression: expr,
         });
         let result = evaluate(&mut sheet, &Addr { row: 2, col: 1}, &None);
-        if let Err(_) = result {
+        if result.is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[1].borrow_mut()[2]));
@@ -538,7 +538,7 @@ mod tests {
             expression: expr,
         });
         let result = evaluate(&mut sheet, &Addr { row: 2, col: 1}, &None);
-        if let Err(_) = result {
+        if result.is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[1].borrow_mut()[2]));
@@ -592,7 +592,7 @@ mod tests {
             expression: expr,
         });
         let result = evaluate(&mut sheet, &Addr { row: 2, col: 1}, &None);
-        if let Err(_) = result {
+        if result.is_err() {
             panic!("Error evaluating cell");
         }
         let target_cell_rc = Rc::clone(& (sheet.data[1].borrow_mut()[2]));
