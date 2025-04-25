@@ -5,12 +5,18 @@ use spreadsheet::ast::{
     Expr, AtomicExpr, Addr, RangeFunction, BinaryFunction, MonoFunction
 };
 use spreadsheet::evaluate_operations::evaluate;
+use spreadsheet::tokens;
+use spreadsheet::grammar;
 #[cfg(test)]
 mod tests {
     use super::*;
     use core::panic;
     use std::cell::RefCell;
     use std::rc::Rc;
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+    use logos::Logos;
+
 
     // Helper function to create a new Sheet with cells
     fn create_test_sheet() -> Sheet {
@@ -656,6 +662,42 @@ mod tests {
     }
 
     #[test]
+    fn test_parser() {
+        let file = File::open("./tests/IOtestcases.txt").expect("Error opening test_cases file.");
+        let reader = BufReader::new(file);
+        let parser = grammar::CommandParser::new();
+        
+        for line_result in reader.lines() {
+            let line = line_result.expect("Issue in running test.");
+            let trimmed = line.trim();
+    
+            if trimmed.is_empty() {
+                continue; // Ignore empty lines
+            } else if trimmed.starts_with('#') {
+                continue; // Ignore comment lines
+            } else if trimmed.starts_with('!') {
+                let lexer = tokens::Token::lexer(&trimmed[1..].trim()).spanned()
+                .map(|(token_result, span)| {
+                    let token = token_result?; // Propagate LexicalError
+                    Ok((span.start, token, span.end)) // (usize, Token, usize)
+                });
+               match parser.parse(0, lexer) {
+                Ok(_) => panic!("{}", &trimmed[1..].trim()),
+                Err(_) => ()
+               }
+            } else {
+                let lexer = tokens::Token::lexer(&trimmed.trim()).spanned()
+                .map(|(token_result, span)| {
+                    let token = token_result?; // Propagate LexicalError
+                    Ok((span.start, token, span.end)) // (usize, Token, usize)
+                });
+               parser.parse(0, lexer).expect("Parsing failed");
+            }
+        }
+
+    }
+
+    #[test]
     fn print_test(){
         let sheet = create_test_sheet();
         let cell_rc = Rc::clone(& (sheet.data[0].borrow_mut()[0]));
@@ -665,7 +707,13 @@ mod tests {
 
         let c = "Some(CellFunc{expression: Atom(Integer(5))}\n)".to_string();
         let d = "Atom(Integer(5))".to_string();
+
+        let e = format!("{}", tokens::Token::Assign);
+        let f = "Assign".to_string();
         assert_eq!(a,c);
         assert_eq!(b,d);
+        assert_eq!(e,f);
     }
+
+
 }

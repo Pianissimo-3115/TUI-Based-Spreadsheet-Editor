@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 fn min_eval(data: &[RefCell<Column>], range: ((usize,usize),(usize,usize))) -> Result<i32,i32> 
 {
-    
+
     let cell1: (usize, usize) = range.0;
     let cell2: (usize, usize) = range.1;
     let mut mini = i32::MAX;

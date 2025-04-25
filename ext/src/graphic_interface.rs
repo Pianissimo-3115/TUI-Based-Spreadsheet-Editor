@@ -201,6 +201,10 @@ impl HistoryWidget {
     }
 
     pub fn draw(&mut self, area: Rect, frame: &mut Frame, styleguide: &StyleGuide) {
+        if self.history.len() > 50 {
+            self.history.remove(0);
+        }
+
         let text = self.history.iter().map(|(x, y)| Line::from(format!("> {} >> {}", x, y))).collect::<Vec<Line>>();
 
         let create_block = |title: &'static str| Block::bordered().gray().title(title.bold());

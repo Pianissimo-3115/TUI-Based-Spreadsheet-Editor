@@ -1572,8 +1572,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 match cmd 
                 {
                     ast::OtherCommand::AddSheet(s, c, r) => {
-                        if c==0 || r==0 {
+                        if sheetstore.map.len() >= 12 {
+                            last_err_msg = String::from("Number of active sheets limit is set to 12")
+                        }
+                        else if sheetstore.data.len() >= 50 {
+                            last_err_msg = String::from("Total sheets (active or removed) created in session has limit set to 50.")
+                        }
+                        else if c==0 || r==0 {
                             last_err_msg = String::from("Column and row size cannot be zero.")
+                        }
+                        else if s.chars().count() > 15 {
+                            last_err_msg = format!("Sheet name \"{}\" is larger than 15 characters.", s);
                         }
                         else {
                             let res = sheetstore.new_sheet(s.as_str(), c, r);
@@ -1632,10 +1641,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         }
                     }
                     ast::OtherCommand::RenameSheet(s, snew) => {
-                        let res = sheetstore.rename_sheet(s.as_str(), snew.as_str());
-                        if res.is_none() {
-                            last_err_msg = format!("Either Sheet name \"{}\" not found OR Sheet name \"{}\" already exists.", s, snew);
-                        } else { last_err_msg = String::from("ok") }
+                        if snew.chars().count() > 15 {
+                            last_err_msg = format!("Sheet name \"{}\" is larger than 15 characters.", snew);
+                        }
+                        else {
+                            let res = sheetstore.rename_sheet(s.as_str(), snew.as_str());
+                            if res.is_none() {
+                                last_err_msg = format!("Either Sheet name \"{}\" not found OR Sheet name \"{}\" already exists.", s, snew);
+                            } else { last_err_msg = String::from("ok") }
+                        }
                     }
                     ast::OtherCommand::DuplicateSheet(s, snew_op) => 
                     {
@@ -1644,10 +1658,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             None => format!("{}-copy", s)
                         };
                         let res = sheetstore.num_from_name(s.as_str());
-                        if res.is_none() 
+                        if sheetstore.map.len() >= 12 {
+                            last_err_msg = String::from("Number of active sheets limit is set to 12")
+                        }
+                        else if sheetstore.data.len() >= 50 {
+                            last_err_msg = String::from("Total sheets (active or removed) created in session has limit set to 50.")
+                        }
+                        else if res.is_none() 
                         {
                             last_err_msg = format!("Sheet name \"{}\" not found.", s);
-                        } 
+                        }
+                        else if snew.chars().count() > 15 {
+                            last_err_msg = format!("Sheet name \"{}\" is larger than 15 characters.", snew);
+                        }
                         else 
                         {
                             let sheet_num = res.unwrap();
@@ -1725,43 +1748,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                         }
                     }
                     ast::OtherCommand::LoadCsv(path, opt_s) => 
-                    {
-                        match opt_s {
-                            None => {
-                                let name_opt = path.strip_suffix(".csv");
-                                match name_opt {
-                                    Some(name) => {
-                                        if sheetstore.num_from_name(name).is_none() {
-                                            let imp_result = import_csv(&path, sheetstore.data.len() as u32);
-                                            match imp_result {
-                                                Ok(x) => {
-                                                    sheetstore.add_sheet(name, x); //Since we have alreayd verified that name does not exist already, this should happen successfully
-                                                    last_err_msg = String::from("ok");
-                                                },
-                                                Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                    {                        
+                        if sheetstore.map.len() >= 12 {
+                            last_err_msg = String::from("Number of active sheets limit is set to 12")
+                        }
+                        else if sheetstore.data.len() >= 50 {
+                            last_err_msg = String::from("Total sheets (active or removed) created in session has limit set to 50.")
+                        }
+                        else {
+                            match opt_s {
+                                None => {
+                                    let name_opt = path.strip_suffix(".csv");
+                                    match name_opt {
+                                        Some(name) => {
+                                            if name.chars().count() > 15 {
+                                                last_err_msg = format!("Sheet name \"{}\" is larger than 15 characters.", name);
                                             }
-                                        }
-                                        else {
-                                            last_err_msg = format!("Sheet name \"{}\" already exist.", name)
-                                        }
-                                    },
-                                    None => last_err_msg = format!("Invalid filepath (does not end in .csv): \"{}\"", path)
-                                }
-                            },
-                            Some(name) => {
-                                if sheetstore.num_from_name(name.as_str()).is_none() {
-                                    let imp_result = import_csv(&path, sheetstore.data.len() as u32);
-                                    match imp_result {
-                                        Ok(x) => {
-                                            sheetstore.add_sheet(name.as_str(), x); //Since we have alreayd verified that name does not exist already, this should happen successfully
-                                            last_err_msg = String::from("ok");
+                                            else if sheetstore.num_from_name(name).is_none() {
+                                                let imp_result = import_csv(&path, sheetstore.data.len() as u32);
+                                                match imp_result {
+                                                    Ok(x) => {
+                                                        sheetstore.add_sheet(name, x); //Since we have alreayd verified that name does not exist already, this should happen successfully
+                                                        last_err_msg = String::from("ok");
+                                                    },
+                                                    Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                                                }
+                                            }
+                                            else {
+                                                last_err_msg = format!("Sheet name \"{}\" already exist.", name)
+                                            }
                                         },
-                                        Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                                        None => last_err_msg = format!("Invalid filepath (does not end in .csv): \"{}\"", path)
                                     }
+                                },
+                                Some(name) => {
+                                    if sheetstore.num_from_name(name.as_str()).is_none() {
+                                        let imp_result = import_csv(&path, sheetstore.data.len() as u32);
+                                        match imp_result {
+                                            Ok(x) => {
+                                                sheetstore.add_sheet(name.as_str(), x); //Since we have alreayd verified that name does not exist already, this should happen successfully
+                                                last_err_msg = String::from("ok");
+                                            },
+                                            Err(e) => last_err_msg = format!("Error occured during import: {}", e)
+                                        }
+                                    }
+                                    else {
+                                        last_err_msg = format!("Sheet name \"{}\" already exist.", name)
+                                    };
                                 }
-                                else {
-                                    last_err_msg = format!("Sheet name \"{}\" already exist.", name)
-                                };
                             }
                         }
                     },
