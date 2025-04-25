@@ -358,8 +358,8 @@ impl OutputsWidget {
 
 
 
-    pub fn draw_chart(&mut self, sheet: &Sheet, area: Rect, frame: &mut Frame, _styleguide: &StyleGuide, ) {
-        
+    pub fn draw_chart(&mut self, sheet: &Sheet, area: Rect, frame: &mut Frame, styleguide: &StyleGuide, invalid: bool) {
+        let mut invalid = invalid;
         let mut data: Vec<(f64,f64)> = vec![];
         let mut min_val1: f64 = f64::MAX;
         let mut min_val2: f64 = f64::MAX;
@@ -369,8 +369,30 @@ impl OutputsWidget {
             let val1: f64;
             let val2: f64;
 
-            let colref1 = sheet.data[self.col1].borrow();
-            let cell1 = colref1.cells[self.row_start1 + i].borrow();
+            if self.col1 >= sheet.data.len() {
+                invalid = true;
+                break
+            }
+            let colref1 = match sheet.data[self.col1].try_borrow() {
+                Err(_) => {
+                    invalid = true;
+                    break
+                },
+                Ok(x) => x
+            };
+            if self.row_start1 + i >= colref1.cells.len() {
+                invalid = true;
+                break
+            }
+
+            let cell1 = match colref1.cells[self.row_start1 + i].try_borrow() {
+                Err(_) => {
+                    invalid = true;
+                    break
+                },
+                Ok(x) => x
+            };
+
             if cell1.valid {
                 let val =  &cell1.value;
                 match val {
@@ -382,8 +404,29 @@ impl OutputsWidget {
             }
             else { val1 = 0.0 };
 
-            let colref2 = sheet.data[self.col2].borrow();
-            let cell2 = colref2.cells[self.row_start2 + i].borrow();
+            if self.col2 >= sheet.data.len() {
+                invalid = true;
+                break
+            }
+            let colref2 = match sheet.data[self.col2].try_borrow() {
+                Err(_) => {
+                    invalid = true;
+                    break
+                },
+                Ok(x) => x
+            };
+            if self.row_start2 + i >= colref2.cells.len() {
+                invalid = true;
+                break
+            }
+
+            let cell2 = match colref2.cells[self.row_start2 + i].try_borrow() {
+                Err(_) => {
+                    invalid = true;
+                    break
+                },
+                Ok(x) => x
+            };
             if cell2.valid {
                 let val =  &cell2.value;
                 match val {
@@ -401,9 +444,15 @@ impl OutputsWidget {
             data.push((val1, val2));
         }
         
-        
+        if invalid {
+            self.draw_text(String::from("Data not valid, run make_chart again."), area, frame, styleguide);
+            return;
+        }
+
+
+
         let dataset = Dataset::default()
-            .name("Values")
+            // .name("Values")
             .marker(Marker::Braille)
             .graph_type(GraphType::Scatter)
             .style(Style::new().cyan())

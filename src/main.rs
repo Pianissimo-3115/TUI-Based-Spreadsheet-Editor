@@ -1234,8 +1234,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             }
             history_widget.draw(history_area, frame, &styleguide);
             input_widget.draw(input_area, frame, &styleguide);
+
             if show_graph {
-                outputs_widget.draw_chart( &sheetstore.data[outputs_widget.sheetnum].borrow(), output_area, frame, &styleguide);
+                if sheetstore.name_from_num(outputs_widget.sheetnum).is_none() {
+                    outputs_widget.draw_text( String::from("Referred sheet no longer valid."), output_area, frame, &styleguide);
+                }
+                else {
+                    outputs_widget.draw_chart( &sheetstore.data[outputs_widget.sheetnum].borrow(), output_area, frame, &styleguide, false);
+                }
             }
             else {
                 outputs_widget.draw_idle(output_area, frame, &styleguide);
@@ -1570,9 +1576,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                             }
 
                             let res = sheetstore.remove_sheet(s.as_str());
-                            if res.is_none() {
+                            match res {
+                                None => {
                                 last_err_msg = format!("Sheet name \"{}\" not found.", s);
-                            } else { last_err_msg = String::from("ok"); curr_sheet_number = sheetstore.map[0].1; curr_col = 0; curr_row = 0; }
+                                },
+                                Some(n) => { 
+                                    last_err_msg = String::from("ok");
+                                    curr_sheet_number = sheetstore.map[0].1;
+                                    curr_col = 0;
+                                    curr_row = 0;
+                                    if n == outputs_widget.sheetnum {
+                                        show_graph = false
+                                    }
+                                }
+                            }
                         }
                     }
                     ast::OtherCommand::RenameSheet(s, snew) => {
