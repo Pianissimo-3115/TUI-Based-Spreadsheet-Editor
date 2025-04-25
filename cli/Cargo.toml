@@ -1,5 +1,5 @@
 [package]
-name = "Rust_lab_2023CS10058_2023CS10552_2023CS50163"
+name = "spreadsheet"
 version = "0.1.0"
 edition = "2024"
 
