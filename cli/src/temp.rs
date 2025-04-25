@@ -5,28 +5,146 @@ pub mod evaluate_operations;
 use lalrpop_util::lalrpop_mod;
 use lalrpop_util::ParseError;
 use logos::Logos;
-use crate::cell_operations::{Cell, CellFunc, Sheet};
+use crate::cell_operations::{Cell, CellFunc, Sheet, ValueType};
 use crate::evaluate_operations::evaluate;
 use crate::tokens::LexicalError;
-use std::io::{self, Write, BufRead, BufReader};
+use std::io::{self, Write, BufWriter};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp;
 use std::time::Instant;
-lalrpop_mod!(pub grammar);
+use std::fs::File;
+// use serde::Serialize;
+use csv::Reader;
+
+//NOTE: PLEASE HAR JAGA usize KAR DO, bohot zyada conversions karne pad rahe hai
+
+
+lalrpop_mod!(pub grammar); // include the generated parser
+
+/* STUFF TO DO:
+0 - initialise
+0 - ask input
+0 - If error, report respective error, restart
+O - If not error:
+    0 - Check required cells:
+        0 - If out of range, report error (In extension: Suggest resizing)
+        0 - Initialise if not done yet (should now happen automatically)
+    0 - Give new function to - cell
+    O - Give old and new function to - evaluate()
+    O - If result is error (loop) then report error.
+restart
+*/
+
+// struct SheetNames {
+//     map: Vec<(String, u32)>
+// }
+
+// impl SheetNames {
+//     fn numFromName(&self, name: str) -> u32 {
+//         for i in 0..self
+//     }
+// }
 
 struct Settings{
     cell_width: u32,
+    formula_width: u32
 }
 impl Settings {
     fn new() -> Self {
         Settings{
             cell_width: 9,
+            formula_width: 15
         }
     }
 }
 
-fn display_sheet(col: usize, row: usize, sheet: &Sheet, settings: &Settings)
+fn import_csv(csv_name: &str) -> Result<Sheet, String>
+{
+    if let Ok(rdr) = Reader::from_path(csv_name)
+    {
+        todo!()
+    }
+    else 
+    {
+        return Err("Error reading csv".to_string());
+    }
+
+}
+
+fn export_csv(sheet: &Sheet) -> Result<(), String> 
+{
+    if let Ok(file) = File::create(sheet.sheet_name.clone() + ".csv")
+    {
+        let mut writer = BufWriter::new(file);
+        let mut csv_data : Vec<Vec<String>> = vec![];
+        for col in &sheet.data
+        {
+            csv_data.push(vec![]);
+            if col.borrow().cells.len() == 0
+            {
+                for _i in 0..sheet.rows
+                {
+                    if let Some(last) = csv_data.last_mut()
+                    {
+                        (*last).push("<EMPTY>".to_string());
+                    }
+                }
+            }
+            else
+            {
+                let curr_rows: usize = col.borrow().cells.len();
+                let row: &Vec<Rc<RefCell<Cell>>> = &col.borrow().cells;
+                for i in 0..curr_rows
+                {
+                    let value = Rc::clone(&row[i as usize]).borrow().value.clone();
+                    if let Some(last) = csv_data.last_mut()
+                    {
+                        (*last).push(value.to_string());
+                    }
+
+                }
+            }
+        }
+        for row in 0..csv_data[0].len()
+        {
+            for col in 0..csv_data.len()
+            {
+                if let Ok(()) = write!(writer, "{}", csv_data[col][row])
+                {}
+                else 
+                {
+                    return Err("Error in writing csv".to_string());
+                }
+                if row != csv_data[0].len()-1
+                {
+                    if let Ok(()) = write!(writer, ",")
+                    {}
+                    else 
+                    {
+                        return Err("Error in writing csv".to_string());
+                    }
+                }
+            }
+            if let Ok(()) = writeln!(writer)
+            {}
+            else 
+            {
+                return Err("Error in writing csv".to_string());
+            }
+        }
+
+        Ok(())
+    }
+    else 
+    {
+        return Err("Error in creating csv".to_string());
+    }
+}
+
+
+
+fn display_sheet(col: u32, row: u32, sheet: &Sheet, settings: &Settings, showformulas: bool)
 {
     let row_max = cmp::min(row+10, sheet.rows);
     let col_max = cmp::min(col+10, sheet.columns);
@@ -41,7 +159,6 @@ fn display_sheet(col: usize, row: usize, sheet: &Sheet, settings: &Settings)
 
             curr.push(((b'A') + ((curr_col-1) % 26) as u8) as char);
             
-
             curr_col -= 1;
             curr_col /= 26;
         }
@@ -52,31 +169,42 @@ fn display_sheet(col: usize, row: usize, sheet: &Sheet, settings: &Settings)
         print!("{:>width$}", i+1);
         for j in col..col_max {
 
-                let colref = sheet.data[j].borrow();
-                if i >= colref.cells.len()
+            if showformulas
+            {
+                sheet.expr_at(j as usize, i as usize, settings.formula_width as usize);
+            }
+            else
+            {
+                let colref = sheet.data[j as usize].borrow();
+                if i as usize >= colref.cells.len()
                 {
-                    print!("{:>width$}", "0");
+                    print!("{:>width$}", "~");
                     continue
                 } 
                 else
                 {
-                    let cell = colref.cells[i].borrow();
+                    let cell = colref.cells[i as usize].borrow();
                     if cell.valid {
-                        let val =  cell.value;
-                        print!("{:>width$}", val);
+                        let val =  &cell.value;
+                        match val {
+                            ValueType::BoolValue(b) => print!("{:>width$}", b),
+                            ValueType::IntegerValue(x) => print!("{:>width$}", x),
+                            ValueType::FloatValue(n) => print!("{:>width$.2}", n, width = width),
+                            ValueType::String(s) => print!("{:>width$}", s),
+                        }
                     }
                     else {
-                        print!("{:>width$}", "err")
+                        print!("{:>width$}", "~ERR")
                     }
                 }  
+            }
         }
         println!()
     }
 }
 
 
-fn main() -> Result<(), Box<dyn std::error::Error>>
-{
+fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     let r: u32 = std::env::args().nth(1)
         .expect("Row number not entered (First arg missing)")
@@ -86,16 +214,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         .expect("Column number not entered (Second arg missing)")
         .parse().expect("Invalid input for Column number (Second arg)");
 
-    let mut in_file: Box<dyn BufRead>  = match std::env::args().nth(3) {
-        Some(x) => {
-            let file = std::fs::File::open(x)?;
-            Box::new(std::io::BufReader::new(file)) as Box<dyn BufRead>
-        },
-        None => Box::new(BufReader::new(io::stdin())),
-    };
-        
+    // let r: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+    // let c: u32 = 3; ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////NOTE: For testing, remove later
+//sheets: &Vec<Rc<RefCell<Sheet>>>
 
-    let mut sheet: Sheet = Sheet::new(c as usize, r as usize);
+    let mut sheets: Vec<Rc<RefCell<Sheet>>> = vec![Rc::new(RefCell::new(Sheet::new(0, String::from("sheet0"), c, r)))];
 
     let mut exit : bool = false;
 
@@ -105,20 +228,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
     let mut last_err_msg = String::from("ok");
     let settings = Settings::new();
     let mut last_time = 0;
-    'mainloop: while !exit 
-    {
-        let mut inp = String::new();
+    'mainloop: while !exit {
         let mut start = Instant::now();
-        if show_window 
-        {
-            display_sheet(curr_col, curr_row, &sheet,  &settings);
+        if show_window {
+            // let curr_sheet = ;
+            display_sheet(curr_col as u32, curr_row as u32, &sheets[0].borrow(),  &settings, false);
         }
+        let mut inp = String::new();
         print!("[{}.0] ", last_time);
-        // print!("({}) > ", last_err_msg.strip_suffix("\n").unwrap_or(&last_err_msg));
-        print!("({}) > ", {if last_err_msg == "ok" {last_err_msg} else {"err".to_string()}});
+        print!("({}) >> ", last_err_msg);
         io::stdout().flush().unwrap();
 
-        in_file
+        io::stdin()
         .read_line(&mut inp)
         .expect("Failed to read line"); //NOTE (to self): Better error message
 
@@ -157,7 +278,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
         match ast {
             ast::Command::DisplayCmd(d_cmd) => {
-                let curr_sheet = &sheet;
+                let curr_sheet = &sheets[0].borrow();
                 match d_cmd {
                     ast::DisplayCommand::EnableOut => show_window = true,
                     ast::DisplayCommand::DisableOut => show_window = false,
@@ -168,27 +289,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
                             last_err_msg = String::from("Address out of bounds");
                             continue
                         }
-                        curr_row = cmp::min(addr.row, curr_sheet.rows.saturating_sub(1));
-                        curr_col = cmp::min(addr.col, curr_sheet.columns.saturating_sub(1)); 
+                        curr_col = cmp::max(0, cmp::min(addr.col as i64, curr_sheet.columns as i64 - 10)) as usize;
+                        curr_row = cmp::max(0, cmp::min(addr.row as i64, curr_sheet.rows as i64 - 10)) as usize; 
                     },
 
-                    // ast::DisplayCommand::MoveUp => curr_row = cmp::max(10, cmp::min(curr_row , curr_sheet.rows)) - 10,
-                    ast::DisplayCommand::MoveUp => curr_row = curr_row.saturating_sub(10),
-                    ast::DisplayCommand::MoveDown => curr_row = cmp::min(curr_row.saturating_add(10) , curr_sheet.rows.saturating_sub(10)),
-                    ast::DisplayCommand::MoveRight => curr_col = cmp::min(curr_col.saturating_add(10) , curr_sheet.columns.saturating_sub(10)),
-                    ast::DisplayCommand::MoveLeft => curr_col = curr_col.saturating_sub(10),
-                };
-                last_time = 0;
-                last_err_msg = String::from("ok");
-                // last_err_msg = inp.clone();
-
-                continue;
-                },
+                    ast::DisplayCommand::MoveUp => curr_row = cmp::max(0, cmp::min(curr_row as i64 -1 , curr_sheet.rows as i64 - 10)) as usize,
+                    ast::DisplayCommand::MoveDown => curr_row = cmp::max(0, cmp::min(curr_row as i64 +1 , curr_sheet.rows as i64 - 10)) as usize,
+                    ast::DisplayCommand::MoveRight => curr_col = cmp::max(0, cmp::min(curr_col as i64 +1 , curr_sheet.columns as i64 - 10)) as usize,
+                    ast::DisplayCommand::MoveLeft => curr_col = cmp::max(0, cmp::min(curr_col as i64 -1 , curr_sheet.columns as i64 - 10)) as usize,
+                }},
             ast::Command::Quit => exit = true,
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
                 let old_func: Option<CellFunc>;
                 {
-                let curr_sheet = &sheet;
+                let curr_sheet = &sheets[0].borrow();
                 if a.row >= curr_sheet.rows {
                     last_time = 0;
                     last_err_msg = String::from("Target address row out of range"); //NOTE: Error messages are temporary.
@@ -199,14 +313,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
                     last_err_msg = String::from("Target address column out of range"); //NOTE: Error messages are temporary.
                     continue 'mainloop;
                 }
-                let mut col = curr_sheet.data[a.col].borrow_mut();
-                if col.cells.len() <= a.row
+                let mut col = curr_sheet.data[a.col as usize].borrow_mut();
+                if col.cells.len() <= a.row as usize
                 {
                     let mut p = col.cells.len() as u32;
-                    col.cells.resize_with(a.row + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{row: (p-1 )as usize, col: a.col})))});
+                    col.cells.resize_with(a.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: a.col})))});
                 }
                 drop(col);
-                // println!("{:?}", dep_vec);
+
                 for dep in &dep_vec {
                     match dep {
                         ast::ParentType::Single(a_1) => {
@@ -220,11 +334,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
                                 last_err_msg = String::from("Address column out of range"); //NOTE: Error messages are temporary.
                                 continue 'mainloop;
                             }
-                            let mut col = curr_sheet.data[a_1.col].borrow_mut();
-                            if col.cells.len() <= a_1.row 
+                            let mut col = curr_sheet.data[a_1.col as usize].borrow_mut();
+                            if col.cells.len() <= a_1.row  as usize
                             {
                                 let mut p = col.cells.len() as u32;
-                                col.cells.resize_with(a_1.row + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{row: (p-1) as usize, col: a_1.col})))});
+                                col.cells.resize_with(a_1.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: a_1.col})))});
                             }
                             drop(col);
                         },
@@ -260,11 +374,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
                                 continue 'mainloop;
                             }
                             for i in a_1.col..=a_2.col {
-                                let mut col = curr_sheet.data[i].borrow_mut();
-                                if col.cells.len() <= a_2.row
+                                let mut col = curr_sheet.data[i as usize].borrow_mut();
+                                if col.cells.len() <= a_2.row as usize
                                 {
                                     let mut p = col.cells.len() as u32;
-                                    col.cells.resize_with(a_2.row + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{row: (p-1) as usize, col: i})))});
+                                    col.cells.resize_with(a_2.row as usize + 1, || {p += 1; Rc::new(RefCell::new(Cell::new(ast::Addr{sheet: curr_sheet.sheet_idx, row: p, col: i})))});
                                 }
                                 drop(col);
                             }
@@ -272,29 +386,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
                     }
                 }
 
-                let target_cell_rc = Rc::clone(& (curr_sheet.data[a.col].borrow_mut()[a.row]));
+                let target_cell_rc = Rc::clone(& (curr_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
                 let mut target_cell_ref = target_cell_rc.borrow_mut();
                 old_func = (target_cell_ref).cell_func.clone();
-                (target_cell_ref).cell_func = Some(CellFunc{expression: b_ex});
+                (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});
                 // println!("{}", target_cell_rc.try_borrow_mut().is_ok());
                 drop(target_cell_ref);
 
             }
             start = Instant::now();
-                // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col].borrow_mut()[a.row])).try_borrow_mut().is_ok());
-                if let Err(n) = evaluate(&mut sheet, &a, &old_func) {
-                    if n != -1 {
-                        last_time = start.elapsed().as_secs();
-                        last_err_msg = "err".to_string();
-                        continue 'mainloop;
-                    }
-                }
-                        
+                // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
+                if let Err(strr) = evaluate(&mut sheets, &a, &old_func)
+                {
+                    last_time = start.elapsed().as_secs();
+                    last_err_msg = strr;
+                    continue 'mainloop;
+                    
+                }              
             }
 
         }
         last_time = start.elapsed().as_secs();
-        // last_err_msg = inp.clone();
         last_err_msg = String::from("ok");
     }
 
