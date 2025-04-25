@@ -12,15 +12,15 @@ test:
 coverage:
 	cargo tarpaulin --exclude-files cli/src/main.rs ext/src/*
 
-docs: cargo-docs report/report.pdf
+docs: cargo-docs
 	
 cargo-docs:
 	cargo doc --package spreadsheet
 
-report/report.pdf: report/report.tex
-	pdflatex -output-directory=report report/report.tex
-	bibtex report/report || true
-	pdflatex -output-directory=report report/report.tex
-	pdflatex -output-directory=report report/report.tex
+# report/report.pdf: report/report.tex
+# 	pdflatex -output-directory=report report/report.tex
+# 	bibtex report/report || true
+# 	pdflatex -output-directory=report report/report.tex
+# 	pdflatex -output-directory=report report/report.tex
 
 .PHONY: all build ext1 test coverage docs
