@@ -1610,7 +1610,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     },
                     ast::OtherCommand::Undo =>
                     {
-                        last_err_msg = format!("undo_history: {:?}", undo_history.last());      // debugging purpose
+                        // last_err_msg = format!("undo_history: {:?}", undo_history.last());      // debugging purpose
                         match undo(&mut sheetstore.data, &mut undo_history, &mut redo_history, &settings)
                         {
                             Ok((cell_addr,old_function)) =>
@@ -1632,7 +1632,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     }
                     ast::OtherCommand::Redo =>
                     {
-                        last_err_msg = format!("redo_history: {:?}", redo_history.last());      // debugging purpose
+                        // last_err_msg = format!("redo_history: {:?}", redo_history.last());      // debugging purpose
                         match redo(&mut sheetstore.data, &mut undo_history, &mut redo_history, &settings)
                         {
                             Ok((cell_addr,old_function)) =>
