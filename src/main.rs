@@ -836,14 +836,14 @@ fn invalidate_children(sheets: &mut [Rc<RefCell<Sheet>>], cell_addr: Addr)
 }
 
 
-fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(bool, Addr, Option<CellFunc> /* old func */, bool, Option<CellFunc> /* new func */, bool)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
+fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(bool, Addr, Option<CellFunc>, Option<String>/* old func */, bool, Option<CellFunc> /* new func */, Option<String>, bool)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, Option<String>, bool, Option<CellFunc>, Option<String>, bool)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
 {
     let temp = undo_history.last();
     if temp.is_none()
     {
         return Err("Already at the earliest change".to_string());
     }
-    let (undoable, addr, old_func,old_valid, new_func, new_valid) = temp.unwrap().clone();
+    let (undoable, addr, old_func, old_formula, old_valid, new_func, new_formula, new_valid) = temp.unwrap().clone();
     let sheet_ref = &sheets[addr.sheet as usize];
     let sheet = sheet_ref.borrow();
     let column_ref = &sheet.data[addr.col as usize];
@@ -867,8 +867,16 @@ fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(bool, Addr, Op
         cell.value = ValueType::IntegerValue(0);
         
     }
+    if let Some(formula) = old_formula.clone()
+    {
+        cell.formula = formula.clone();
+    }
+    else
+    {
+        cell.formula = "~".to_string();
+    }
     cell.valid = old_valid.clone();
-    redo_history.push((addr.clone(),old_func.clone(),old_valid.clone(), new_func.clone(), new_valid.clone()));
+    redo_history.push((addr.clone(),old_func.clone(), old_formula.clone(), old_valid.clone(), new_func.clone(), new_formula.clone(), new_valid.clone()));
     undo_history.pop();
     if redo_history.len() > settings.undo_history_limit as usize
     {
@@ -878,7 +886,7 @@ fn undo(sheets: &mut [Rc<RefCell<Sheet>>],undo_history: &mut Vec<(bool, Addr, Op
     Ok((cell.addr.clone(),old_function))
 }
 
-fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(bool, Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
+fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(bool, Addr, Option<CellFunc>, Option<String>, bool, Option<CellFunc>, Option<String>, bool)>, redo_history: &mut Vec<(Addr, Option<CellFunc>, Option<String>, bool, Option<CellFunc>, Option<String>, bool)>, settings: &Settings) -> Result<(Addr,Option<CellFunc>),String>
 {
     let temp = redo_history.last();
     if temp.is_none()
@@ -886,7 +894,7 @@ fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(bool, Addr, O
         return Err("Already at the latest change".to_string());
     }
     // assert!(index < history.len() as i32);
-    let (addr, old_func, old_valid, new_func, new_valid) = temp.unwrap().clone();
+    let (addr, old_func, old_formula, old_valid, new_func, new_formula, new_valid) = temp.unwrap().clone();
     let sheet_ref = &sheets[addr.sheet as usize];
     let sheet = sheet_ref.borrow();
     let column_ref = &sheet.data[addr.col as usize];
@@ -903,8 +911,16 @@ fn redo(sheets: &mut [Rc<RefCell<Sheet>>], undo_history: &mut Vec<(bool, Addr, O
     {
         cell.cell_func = None;
     }
+    if let Some(formula) = old_formula.clone()
+    {
+        cell.formula = formula.clone();
+    }
+    else
+    {
+        cell.formula = "~".to_string();
+    }
     cell.valid = new_valid.clone();
-    undo_history.push((true, addr.clone(),old_func.clone(), old_valid.clone(), new_func.clone(), new_valid.clone()));
+    undo_history.push((true, addr.clone(),old_func.clone(), old_formula.clone(), old_valid.clone(), new_func.clone(), new_formula.clone(), new_valid.clone()));
     redo_history.pop();
     if undo_history.len() > settings.undo_history_limit as usize
     {
@@ -1198,8 +1214,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let settings = Settings::new();
     // let mut last_time = 0;
     let mut command_history_index = 0;
-    let mut undo_history: Vec<(bool, Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)> = vec![];
-    let mut redo_history: Vec<(Addr, Option<CellFunc>, bool, Option<CellFunc>, bool)> = vec![];
+    let mut undo_history: Vec<(bool, Addr, Option<CellFunc>, Option<String>, bool, Option<CellFunc>, Option<String>, bool)> = vec![];
+    let mut redo_history: Vec<(Addr, Option<CellFunc>, Option<String>, bool, Option<CellFunc>, Option<String>, bool)> = vec![];
 
     'mainloop: while !exit {
         // let mut start = Instant::now();
@@ -1594,7 +1610,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     },
                     ast::OtherCommand::Undo =>
                     {
-
+                        last_err_msg = format!("undo_history: {:?}", undo_history.last());      // debugging purpose
                         match undo(&mut sheetstore.data, &mut undo_history, &mut redo_history, &settings)
                         {
                             Ok((cell_addr,old_function)) =>
@@ -1616,6 +1632,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     }
                     ast::OtherCommand::Redo =>
                     {
+                        last_err_msg = format!("redo_history: {:?}", redo_history.last());      // debugging purpose
                         match redo(&mut sheetstore.data, &mut undo_history, &mut redo_history, &settings)
                         {
                             Ok((cell_addr,old_function)) =>
@@ -1791,7 +1808,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 };
                 history_widget.history.push((inp.clone(), last_err_msg.clone()));
                 jump_to_last = true;
-                continue 'mainloop
+                // continue 'mainloop
             }
             ast::Command::DisplayCmd(d_cmd) => {
                 let curr_sheet = &sheetstore.data[curr_sheet_number].borrow();
@@ -1826,8 +1843,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
             ast::Command::Quit => exit = true,
             ast::Command::AssignCmd(a, b_ex) => {  //NOTE: All validity checks for addresses will be more complicated when we implement multiple sheets.
 
-                let old_func: Option<CellFunc>;
-                let old_valid: bool;
+                let old_func: Option<CellFunc>;                 // mut is doubtful
+                let old_valid: bool;                    // mut is doubtful
+                let old_formula: String;
+                let mut new_formula: String = String::from("~");
                 {
                     let cell_sheet = &sheetstore.data[a.sheet as usize].borrow();
                     if a.row >= cell_sheet.rows {
@@ -1953,18 +1972,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     let mut target_cell_ref = target_cell_rc.borrow_mut();
                     old_func = (target_cell_ref).cell_func.clone();
                     old_valid = target_cell_ref.valid.clone();
+
+                    old_formula = target_cell_ref.formula.clone();
                     (target_cell_ref).cell_func = Some(CellFunc{expression: *b_ex});
                     new_function = target_cell_ref.cell_func.clone();
                     address = target_cell_ref.addr.clone();
                     // println!("{}", target_cell_rc.try_borrow_mut().is_ok());
                     if let Some(eq_index) = inp.find('=') {
                         target_cell_ref.formula = inp[eq_index + 1..].trim().to_string();
+                        new_formula = target_cell_ref.formula.clone();
                     }
                     drop(target_cell_ref);
 
                 }
                 // start = Instant::now();
                     // println!("{}", Rc::clone(& (&sheets[0].borrow().data[a.col as usize].borrow_mut()[a.row as usize])).try_borrow_mut().is_ok());
+                { 
+                    let target_sheet = &sheetstore.data[a.sheet as usize].borrow();
+                    let target_cell_rc = Rc::clone(& (target_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
+                    let target_cell_ref = target_cell_rc.borrow();
+
+                    undo_history.push((true, address, old_func.clone(), Some(old_formula), old_valid.clone(), new_function.clone(), Some(new_formula),target_cell_ref.valid.clone()));
+                    if undo_history.len() > settings.undo_history_limit as usize
+                    {
+                        undo_history.remove(0);
+                    }
+                    redo_history.clear();
+                }
+
                 if let Err(strr) = evaluate(&mut sheetstore.data, &a, &old_func)
                 {
                     // last_time = start.elapsed().as_secs();
@@ -1973,22 +2008,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     jump_to_last = true;
                     continue 'mainloop;   
                 }
-                else 
-                {
-                    let target_sheet = &sheetstore.data[a.sheet as usize].borrow();
-                    let target_cell_rc = Rc::clone(& (target_sheet.data[a.col as usize].borrow_mut()[a.row as usize]));
-                    let target_cell_ref = target_cell_rc.borrow();
-
-                    undo_history.push((true, address, old_func.clone(), old_valid.clone(), new_function.clone(), target_cell_ref.valid.clone()));
-                    if undo_history.len() > settings.undo_history_limit as usize
-                    {
-                        undo_history.remove(0);
-                    }
-                    redo_history.clear();
-                    
-                }
-
-
             }
         }
         
@@ -2001,9 +2020,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                     ast::OtherCommand::Redo => {},
                     _ =>
                     {
-                        undo_history.push((false, Addr{sheet: 0, row: 0, col: 0}, None, false, None, false));
+                        undo_history.push((false, Addr{sheet: 0, row: 0, col: 0}, None, None, false, None, None, false));
                     }
                 }
+                continue 'mainloop;
             },
             _ => {}
         }

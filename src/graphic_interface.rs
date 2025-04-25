@@ -210,7 +210,8 @@ impl HistoryWidget {
         let paragraph = Paragraph::new(text.clone())
             .style(styleguide.history_widget)
             .block(create_block("History"))
-            .scroll((self.scroll_amt as u16, 0));
+            .scroll((self.scroll_amt as u16, 0))
+            .wrap(Wrap { trim: true });
         frame.render_widget(paragraph, area);
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
