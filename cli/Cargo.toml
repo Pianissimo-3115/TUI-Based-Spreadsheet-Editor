@@ -1,0 +1,10 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+spreadsheet_core = { path = "../spreadsheet_core" }
+
+[build-dependencies]
+lalrpop = "0.22.1"
