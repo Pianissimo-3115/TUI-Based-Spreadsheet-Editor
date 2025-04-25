@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'Rust_lab_2023CS10058_2023CS10552_2023CS50163'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=Rust_lab_2023CS10058_2023CS10552_2023CS50163",
+                    "--package=Rust_lab_2023CS10058_2023CS10552_2023CS50163"
+                ],
+                "filter": {
+                    "name": "Rust_lab_2023CS10058_2023CS10552_2023CS50163",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'Rust_lab_2023CS10058_2023CS10552_2023CS50163'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=Rust_lab_2023CS10058_2023CS10552_2023CS50163",
+                    "--package=Rust_lab_2023CS10058_2023CS10552_2023CS50163"
+                ],
+                "filter": {
+                    "name": "Rust_lab_2023CS10058_2023CS10552_2023CS50163",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
